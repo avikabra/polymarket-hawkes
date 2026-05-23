@@ -9,6 +9,7 @@ def get_connection(db_path: str = ":memory:") -> duckdb.DuckDBPyConnection:
 
 
 _VIEW_MAP = {
+    "universe":      ("polymarket", "universe"),
     "trades":        ("polymarket", "trades"),
     "bars_1min":     ("polymarket", "bars_1min"),
     "gdelt_gkg":     ("news", "gdelt_gkg"),
@@ -27,11 +28,19 @@ def register_parquet_views(
         path = Path(raw_path)
         if not path.exists():
             continue
-        glob = str(path / "**" / "*.parquet")
-        conn.execute(
-            f"CREATE OR REPLACE VIEW {view_name} AS "
-            f"SELECT * FROM read_parquet('{glob}', hive_partitioning=True)"
-        )
+        if path.is_file():
+            conn.execute(
+                f"CREATE OR REPLACE VIEW {view_name} AS "
+                f"SELECT * FROM read_parquet('{path}')"
+            )
+        else:
+            if not any(path.rglob("*.parquet")):
+                continue
+            glob = str(path / "**" / "*.parquet")
+            conn.execute(
+                f"CREATE OR REPLACE VIEW {view_name} AS "
+                f"SELECT * FROM read_parquet('{glob}', hive_partitioning=True)"
+            )
 
 
 def query_to_df(conn: duckdb.DuckDBPyConnection, sql: str) -> pd.DataFrame:
