@@ -1,0 +1,15 @@
+data_root: "data"
+polymarket:
+  universe: "data/polymarket/universe.parquet"
+  trades: "data/polymarket/trades"
+  bars_1min: "data/polymarket/bars_1min"
+news:
+  gdelt_gkg: "data/news/gdelt_gkg"
+  feeds: "data/news/feeds"
+  embeddings: "data/news/embeddings"
+  articles_text: "data/news/articles_text"
+matches:
+  db: "data/matches/matches.db"
+analysis:
+  tuples: "data/analysis/tuples.parquet"
+  success: "data/analysis/_FOCAL_SUCCESS"

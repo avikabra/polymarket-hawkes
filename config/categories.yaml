@@ -1,0 +1,40 @@
+categories:
+  nfl:
+    polymarket_tags: ["nfl", "nfl-playoffs", "super-bowl"]
+    market_type: "season_long_primary"
+    feeds:
+      espn_sport: "football/nfl"
+      rss:
+        - url: "https://www.espn.com/espn/rss/nfl/news"
+          name: "espn_nfl"
+        - url: "https://apnews.com/apf-sports.rss"
+          name: "ap_sports"
+  nba:
+    polymarket_tags: ["nba", "nba-finals", "nba-playoffs"]
+    market_type: "season_long_primary"
+    feeds:
+      espn_sport: "basketball/nba"
+      nba_stats: true
+      rss:
+        - url: "https://www.espn.com/espn/rss/nba/news"
+          name: "espn_nba"
+        - url: "https://apnews.com/apf-sports.rss"
+          name: "ap_sports"
+  politics:
+    polymarket_tags: ["politics", "elections", "us-politics"]
+    market_type: "season_long_primary"
+    feeds:
+      rss:
+        - url: "https://feeds.reuters.com/Reuters/PoliticsNews"
+          name: "reuters_politics"
+        - url: "https://rss.politico.com/politics-news.xml"
+          name: "politico"
+  geopolitics:
+    polymarket_tags: ["geopolitics", "world", "international"]
+    market_type: "season_long_primary"
+    feeds:
+      rss:
+        - url: "https://feeds.reuters.com/Reuters/worldNews"
+          name: "reuters_world"
+        - url: "https://apnews.com/apf-intlnews.rss"
+          name: "ap_world"

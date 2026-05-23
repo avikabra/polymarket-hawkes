@@ -1,0 +1,7 @@
+data/
+*.parquet
+*.faiss
+__pycache__/
+.env
+credentials.yaml
+.venv/

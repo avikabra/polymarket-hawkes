@@ -1,0 +1,9 @@
+focal:
+  categories: ["nfl", "nba"]
+  start_date: "2024-08-01"
+  end_date: "2025-06-01"
+  market_types:
+    primary: ["season_long", "championship", "playoff_series", "conference"]
+    secondary: ["single_game"]   # collected but not used in primary Hawkes fit
+  min_volume_usdc: 10000
+  min_market_duration_days: 30

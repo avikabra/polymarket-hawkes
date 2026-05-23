@@ -1,0 +1,36 @@
+[project]
+name = "thesis-pipeline"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "pydantic>=2.7",
+    "duckdb>=0.10",
+    "faiss-cpu>=1.8",
+    "sentence-transformers>=3.0",
+    "anthropic>=0.28",
+    "google-cloud-bigquery>=3.20",
+    "feedparser>=6.0",
+    "trafilatura>=1.9",
+    "newspaper3k>=0.2",
+    "pandas>=2.2",
+    "pyarrow>=16.0",
+    "python-dotenv>=1.0",
+    "tenacity>=8.3",
+    "numpy>=1.26",
+    "scikit-learn>=1.5",
+    "tqdm>=4.66",
+    "pandera>=0.19",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.uv]
+constraint-dependencies = [
+    "torch<2.3",
+]
