@@ -33,7 +33,7 @@ class BGEEmbedder:
             batch_size=self._batch_size,
             normalize_embeddings=True,
             convert_to_numpy=True,
-            show_progress_bar=False,
+            show_progress_bar=True,
         )
         return vecs.astype(np.float16)
 

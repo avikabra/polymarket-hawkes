@@ -18,7 +18,7 @@ dependencies = [
     "pyarrow>=16.0",
     "python-dotenv>=1.0",
     "tenacity>=8.3",
-    "numpy>=1.26",
+    "numpy>=1.26,<2",
     "scikit-learn>=1.5",
     "tqdm>=4.66",
     "pandera>=0.19",
@@ -36,6 +36,7 @@ packages = ["src"]
 constraint-dependencies = [
     "torch<2.3",
     "transformers<5.0",
+    "scipy<1.14",
 ]
 
 [tool.pytest.ini_options]
