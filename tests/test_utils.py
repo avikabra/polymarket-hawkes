@@ -8,7 +8,7 @@ from src.utils import DiskCache, TokenBucket, register_parquet_views
 
 def test_token_bucket_immediate_when_full():
     bucket = TokenBucket(rate=1.0, capacity=10.0)
-    asyncio.get_event_loop().run_until_complete(bucket.acquire(1.0))
+    asyncio.run(bucket.acquire(1.0))
 
 
 def test_disk_cache_roundtrip():

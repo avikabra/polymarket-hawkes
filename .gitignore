@@ -4,4 +4,7 @@ data/
 __pycache__/
 .env
 credentials.yaml
+config/*.json
 .venv/
+cc_prompts_thesis_pipeline.md
+google-cloud-sdk/

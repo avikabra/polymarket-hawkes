@@ -55,6 +55,6 @@ def test_list_markets_returns_two_from_mock():
     mock_async_ctx.__aexit__ = AsyncMock(return_value=False)
 
     with patch("httpx.AsyncClient", return_value=mock_async_ctx):
-        result = asyncio.get_event_loop().run_until_complete(client.list_markets(tag="nba"))
+        result = asyncio.run(client.list_markets(tag="nba"))
 
     assert len(result) == 2

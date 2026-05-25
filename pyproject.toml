@@ -8,6 +8,7 @@ dependencies = [
     "duckdb>=0.10",
     "faiss-cpu>=1.8",
     "sentence-transformers>=3.0",
+    "transformers>=4.34.0,<5.0",
     "anthropic>=0.28",
     "google-cloud-bigquery>=3.20",
     "feedparser>=6.0",
@@ -21,6 +22,7 @@ dependencies = [
     "scikit-learn>=1.5",
     "tqdm>=4.66",
     "pandera>=0.19",
+    "db-dtypes>=1.6.0",
 ]
 
 [build-system]
@@ -33,6 +35,7 @@ packages = ["src"]
 [tool.uv]
 constraint-dependencies = [
     "torch<2.3",
+    "transformers<5.0",
 ]
 
 [tool.pytest.ini_options]
