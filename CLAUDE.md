@@ -1,4 +1,4 @@
-# CLAUDE.md — Polymarket Hawkes Thesis Pipeline
+# CLAUDE.md — Polymarket News Shock Thesis Pipeline (Direction 4)
 
 > **For debugging and new code additions, always read `README.md` first to understand the structure of the codebase before making any changes.**
 
@@ -46,11 +46,13 @@ Define success criteria. Loop until verified.
 
 ### Math Invariants (DO NOT BREAK)
 - All trade prices entering model code MUST be in log-odds units (`log_odds` field), not raw [0,1] (`price_raw` is for human readability only)
+- Reaction window targets `y_logit_Δ = logit(P_{k,t+Δ}) − logit(P_{k,t})` are in log-odds space — never compute these on raw [0,1] prices
 - GDELT timestamps are tagged `timestamp_precision = "day"` — never treat them as minute-precise
-- `included_in_hawkes_likelihood` must be `True` only when `timestamp_precision == "minute"`
+- Matching embeddings (BGEEmbedder, BAAI/bge-large, float16, 1024-dim) and analysis embeddings (AnalysisEmbedder, E5-large, float32, 768-dim) are separate and must NOT be confused or mixed
+- Purging regression residuals for val/test must be computed out-of-sample (model fitted on training split only); never compute in-sample residuals for held-out data
 
 ### Environment
-- `ANTHROPIC_API_KEY` — set in `.env` before running scripts/08
+- `ANTHROPIC_API_KEY` — set in `.env` before running script 09
 - `GOOGLE_APPLICATION_CREDENTIALS` — path to GCP service account JSON, set in `.env`
 - All secrets loaded from `.env` via `python-dotenv`
 
@@ -59,3 +61,5 @@ Define success criteria. Loop until verified.
 - Polymarket CLOB `/prices-history` is broken for resolved markets — always use Goldsky subgraph for trade-level data.
 - GDELT `SEENDATE` is the crawler's processing time, not article publication time. Use `<pubDate>` from RSS/ESPN for minute-precision timestamps.
 - `price_raw` of exactly 0.0 or 1.0 produces ±inf in log-odds. Clip to (0.001, 0.999) before conversion.
+- The `Article` field is `body_text_available` (not `text_available`).
+- `VerifiedArticle` is the primary deliverable schema (not `AnalysisTuple`). It is the unit of analysis in D4.

@@ -89,7 +89,7 @@ class ESPNFetcher:
                         title=item.get("headline", link),
                         lede=item.get("description") or None,
                         body_text=None,
-                        text_available=False,
+                        body_text_available=False,
                         entities=[],
                         themes=[],
                         raw_metadata_json=json.dumps(raw_metadata),

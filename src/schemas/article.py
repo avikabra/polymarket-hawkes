@@ -13,7 +13,7 @@ class Article(BaseModel):
     title: str
     lede: str | None
     body_text: str | None
-    text_available: bool
+    body_text_available: bool
     entities: list[str]
     themes: list[str]  # GDELT GKG themes; empty for non-GDELT sources
     raw_metadata_json: str

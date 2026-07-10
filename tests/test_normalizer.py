@@ -15,7 +15,7 @@ def _row(url: str, source: str, precision: str, published_at=None) -> dict:
         published_at=published_at,
         timestamp_precision=precision,
         title="Test",
-        lede=None, body_text=None, text_available=False,
+        lede=None, body_text=None, body_text_available=False,
         entities=[], themes=[], raw_metadata_json="{}",
     )
 

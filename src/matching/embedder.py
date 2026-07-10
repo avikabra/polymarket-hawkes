@@ -12,6 +12,9 @@ from src.utils import get_logger
 DEFAULT_MODEL = "BAAI/bge-large-en-v1.5"
 EMBED_DIM = 1024
 
+DEFAULT_ANALYSIS_MODEL = "intfloat/e5-large-v2"
+ANALYSIS_EMBED_DIM = 768
+
 
 class BGEEmbedder:
     def __init__(
@@ -75,4 +78,71 @@ class BGEEmbedder:
         return pd.DataFrame([
             {"market_id": mid, "embedding": emb.tobytes()}
             for mid, emb in zip(universe_df["market_id"].tolist(), vecs)
+        ])
+
+
+class AnalysisEmbedder:
+    """Analysis embedding pass — float32, full text (title+lede+body), E5-large by default.
+
+    Do NOT confuse with BGEEmbedder (matching only). These two embedding passes serve
+    different purposes and must not be mixed.
+    """
+
+    def __init__(
+        self,
+        model_name: str = DEFAULT_ANALYSIS_MODEL,
+        device: str = "auto",
+        batch_size: int = 32,
+        max_body_chars: int = 2048,
+    ) -> None:
+        import torch
+        if device == "auto":
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        self._model = SentenceTransformer(model_name, device=device)
+        self._batch_size = batch_size
+        self._max_body_chars = max_body_chars
+        self._log = get_logger(__name__)
+
+    def _build_text(self, title: str, lede: str | None, body_text: str | None) -> tuple[str, str]:
+        """Return (text_for_embedding, embedding_source)."""
+        parts = [title]
+        if lede:
+            parts.append(lede)
+        if body_text:
+            parts.append(body_text[: self._max_body_chars])
+            source = "full_text"
+        else:
+            source = "headline_only"
+        return " ".join(parts), source
+
+    def embed_articles(self, articles_df: pd.DataFrame) -> pd.DataFrame:
+        """Embed verified articles. Returns DataFrame with article_id, embedding (bytes), embedding_source."""
+        texts = []
+        sources = []
+        for _, row in articles_df.iterrows():
+            text, source = self._build_text(
+                row.get("title", ""),
+                row.get("lede") or None,
+                row.get("body_text") or None,
+            )
+            texts.append(text)
+            sources.append(source)
+
+        vecs = self._model.encode(
+            texts,
+            batch_size=self._batch_size,
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+            show_progress_bar=True,
+        ).astype(np.float32)
+
+        return pd.DataFrame([
+            {
+                "article_id": aid,
+                "embedding": emb.tobytes(),
+                "embedding_source": src,
+            }
+            for aid, emb, src in zip(
+                articles_df["article_id"].tolist(), vecs, sources
+            )
         ])

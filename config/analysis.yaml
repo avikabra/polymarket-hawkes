@@ -1,0 +1,18 @@
+analysis_embedding:
+  model: "intfloat/e5-large-v2"
+  max_body_chars: 2048
+
+matching:
+  top_k: 150
+  match_strength_min: 0.5
+
+reaction_windows_hours: [1, 6, 24]
+
+purging:
+  lambda_grid: [0.1, 1.0, 10.0, 100.0]
+  cv_folds: 5
+
+splits:
+  train_before: "2025-01-01"
+  val_range: ["2025-01-01", "2025-07-01"]
+  test_from: "2025-07-01"

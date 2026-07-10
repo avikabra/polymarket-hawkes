@@ -1,7 +1,8 @@
 """
-Background article text enrichment — NOT on the critical path.
-The LLM verifier in matching/llm_verifier.py can operate on title + lede alone.
-Full text enrichment improves match quality but its absence does not block the pipeline.
+Article text fetcher — on the critical path for D4.
+Full body text is required for analysis embeddings (script 11).
+The --verified-only flag (script 06) prioritizes verified articles first.
+Primary: trafilatura. Fallback: newspaper3k.
 """
 
 import asyncio
@@ -60,7 +61,7 @@ class ArticleFetcher:
 
     async def enrich_batch(self, articles: list[Article]) -> list[Article]:
         async def _one(article: Article) -> Article:
-            if article.text_available:
+            if article.body_text_available:
                 return article
             text, success = await self.fetch_text(article.url)
             lede = article.lede
@@ -69,7 +70,7 @@ class ArticleFetcher:
             return article.model_copy(update={
                 "body_text": text,
                 "lede": lede,
-                "text_available": success,
+                "body_text_available": success,
             })
 
         return list(await asyncio.gather(*[_one(a) for a in articles]))

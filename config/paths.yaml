@@ -6,10 +6,12 @@ polymarket:
 news:
   gdelt_gkg: "data/news/gdelt_gkg"
   feeds: "data/news/feeds"
-  embeddings: "data/news/embeddings"
-  articles_text: "data/news/articles_text"
+  bodies: "data/news/bodies"
+  matching_embeddings: "data/news/matching_embeddings"
+  analysis_embeddings: "data/news/analysis_embeddings"
 matches:
   db: "data/matches/matches.db"
 analysis:
   tuples: "data/analysis/tuples.parquet"
+  shock_embeddings: "data/analysis/shock_embeddings.parquet"
   success: "data/analysis/_FOCAL_SUCCESS"

@@ -75,7 +75,7 @@ class NBAStatsFetcher:
                 title=f"{home_team} {home_score} - {away_score} {away_team} ({game_date})",
                 lede=f"Game result: {winner} defeated {loser} {ws}-{ls}",
                 body_text=None,
-                text_available=False,
+                body_text_available=False,
                 entities=[home_team, away_team],
                 themes=["SPORTS", "BASKETBALL_NBA"],
                 raw_metadata_json=json.dumps({

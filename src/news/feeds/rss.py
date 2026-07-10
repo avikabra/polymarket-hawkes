@@ -63,7 +63,7 @@ class RSSFetcher:
                 title=entry.get("title", link),
                 lede=lede,
                 body_text=None,
-                text_available=False,
+                body_text_available=False,
                 entities=[],
                 themes=[],
                 raw_metadata_json=json.dumps(raw_metadata),

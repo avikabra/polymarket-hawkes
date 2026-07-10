@@ -67,7 +67,7 @@ def test_to_articles_timestamp_precision_and_published_at(client):
     for a in articles:
         assert a.timestamp_precision == "day"
         assert a.published_at is None
-        assert a.text_available is False
+        assert a.body_text_available is False
 
 
 def test_to_articles_schema_roundtrip(client):

@@ -23,6 +23,7 @@ dependencies = [
     "tqdm>=4.66",
     "pandera>=0.19",
     "db-dtypes>=1.6.0",
+    "pyyaml>=6.0",
 ]
 
 [build-system]

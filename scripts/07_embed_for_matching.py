@@ -1,6 +1,15 @@
-"""Script 06: Embed news corpus and market universe, build FAISS index."""
+"""Script 07: Embed news corpus (title+lede) and market universe with BGE-large; build FAISS index.
 
+This is the MATCHING embedding pass. It uses BAAI/bge-large-en-v1.5 (float16, 1024-dim)
+on title+lede only. Do not confuse with the analysis embedding pass (script 11).
+"""
+
+from __future__ import annotations
+
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import faiss
 import numpy as np
@@ -13,8 +22,7 @@ from src.matching.faiss_index import build_index, save_index
 from src.news.normalizer import load_feed_articles, load_gdelt_articles, normalize_and_deduplicate
 from src.utils import get_logger
 
-EMBEDDINGS_DIR = Path("data/news/embeddings")
-UNIFIED_DIR = Path("data/news/unified")
+EMBEDDINGS_DIR = Path("data/news/matching_embeddings")
 GDELT_DIR = Path("data/news/gdelt_gkg")
 FEEDS_DIR = Path("data/news/feeds")
 UNIVERSE_PATH = Path("data/polymarket/universe.parquet")
@@ -28,9 +36,6 @@ log = get_logger(__name__)
 
 
 def _load_corpus() -> pd.DataFrame:
-    if UNIFIED_DIR.exists() and any(UNIFIED_DIR.rglob("*.parquet")):
-        paths = list(UNIFIED_DIR.rglob("*.parquet"))
-        return pa.concat_tables([pq.read_table(p) for p in paths]).to_pandas()
     gdelt_df = load_gdelt_articles(str(GDELT_DIR)) if GDELT_DIR.exists() else pd.DataFrame()
     feed_df = load_feed_articles(str(FEEDS_DIR)) if FEEDS_DIR.exists() else pd.DataFrame()
     if gdelt_df.empty and feed_df.empty:
@@ -42,7 +47,7 @@ def main() -> None:
     EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
     embedder = BGEEmbedder(DEFAULT_MODEL)
 
-    # --- Articles ---
+    # --- Articles (title + lede only — matching embeddings) ---
     articles_df = _load_corpus()
     log.info("corpus loaded", rows=len(articles_df))
     article_emb_df = embedder.embed_articles(
@@ -51,7 +56,7 @@ def main() -> None:
     if not article_emb_df.empty:
         pq.write_table(pa.Table.from_pandas(article_emb_df), ARTICLE_EMB_PATH)
 
-    # --- Markets ---
+    # --- Markets (question + description) ---
     universe_df = pd.read_parquet(UNIVERSE_PATH)
     market_emb_df = embedder.embed_markets(universe_df)
     pq.write_table(pa.Table.from_pandas(market_emb_df), MARKET_EMB_PATH)

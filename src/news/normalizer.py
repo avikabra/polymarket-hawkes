@@ -11,14 +11,14 @@ def load_gdelt_articles(gdelt_dir: str) -> pd.DataFrame:
     paths = list(Path(gdelt_dir).rglob("*.parquet"))
     if not paths:
         return pd.DataFrame()
-    return pa.concat_tables([pq.read_table(p) for p in paths]).to_pandas()
+    return pd.concat([pq.read_table(p).to_pandas() for p in paths], ignore_index=True)
 
 
 def load_feed_articles(feeds_dir: str) -> pd.DataFrame:
     paths = list(Path(feeds_dir).rglob("*.parquet"))
     if not paths:
         return pd.DataFrame()
-    return pa.concat_tables([pq.read_table(p) for p in paths]).to_pandas()
+    return pd.concat([pq.read_table(p).to_pandas() for p in paths], ignore_index=True)
 
 
 def normalize_and_deduplicate(
