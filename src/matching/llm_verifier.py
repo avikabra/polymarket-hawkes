@@ -11,15 +11,13 @@ import asyncio
 import json
 import re
 from datetime import datetime, timezone
-from typing import Literal
 
 from anthropic import AsyncAnthropic, RateLimitError
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import ValidationError
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
+from src.matching._types import VerificationResult
 from src.utils import get_logger
-
-_NEWS_TYPES = {"quantitative", "qualitative", "high_attention", "ambiguous"}
 
 _SYSTEM_PROMPT = """You are a financial event classifier. For each (prediction market, news article) pair, decide whether the article is relevant to the market's resolution outcome.
 
@@ -40,15 +38,6 @@ Definitions:
 - magnitude: 0.0–1.0 subjective salience — how market-moving is this likely to be.
 - news_type: quantitative=has scores/stats/measurements; qualitative=analysis/opinion; high_attention=likely widely read; ambiguous=unclear implications.
 - reasoning: brief justification."""
-
-
-class VerificationResult(BaseModel):
-    is_match: bool
-    match_strength: float = Field(ge=0.0, le=1.0)
-    directional_impact: Literal[-1, 0, 1]
-    magnitude: float = Field(ge=0.0, le=1.0)
-    news_type: Literal["quantitative", "qualitative", "high_attention", "ambiguous"]
-    reasoning: str
 
 
 _log = get_logger(__name__)
