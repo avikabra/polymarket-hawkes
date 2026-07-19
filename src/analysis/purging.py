@@ -10,7 +10,8 @@ Uses 5-fold CV within the training set to select λ.
 Residuals ε̂_i = e_i - B_hat · x_i are computed out-of-sample for val and test.
 
 Writes:
-  shock_embeddings.parquet  — (article_id, shock_embedding, lambda_chosen, category, split)
+  shock_embeddings.parquet  — (article_id, market_id, shock_embedding, raw_embedding,
+                               lambda_chosen, category, split)
 Logs per-category R² on the training split.
 """
 
@@ -104,7 +105,9 @@ def purge_by_category(
                 emb = np.array(row["analysis_embedding"], dtype=np.float32)
                 result_rows.append({
                     "article_id": row["article_id"],
+                    "market_id": row["market_id"],
                     "shock_embedding": emb.tolist(),
+                    "raw_embedding": emb.tolist(),
                     "lambda_chosen": None,
                     "category": cat,
                     "split": row["split"],
@@ -141,7 +144,9 @@ def purge_by_category(
             for i, (_, row) in enumerate(oos_df.iterrows()):
                 result_rows.append({
                     "article_id": row["article_id"],
+                    "market_id": row["market_id"],
                     "shock_embedding": residuals_oos[i].tolist(),
+                    "raw_embedding": np.array(row["analysis_embedding"], dtype=np.float32).tolist(),
                     "lambda_chosen": lambda_chosen,
                     "category": cat,
                     "split": row["split"],
@@ -153,7 +158,9 @@ def purge_by_category(
         for i, (_, row) in enumerate(train_df.iterrows()):
             result_rows.append({
                 "article_id": row["article_id"],
+                "market_id": row["market_id"],
                 "shock_embedding": residuals_train[i].tolist(),
+                "raw_embedding": np.array(row["analysis_embedding"], dtype=np.float32).tolist(),
                 "lambda_chosen": lambda_chosen,
                 "category": cat,
                 "split": "train",

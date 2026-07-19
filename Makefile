@@ -1,7 +1,7 @@
 PYTHON       := uv run python
 FOCAL_CONFIG := config/focal.yaml
 
-.PHONY: all focal audit clean
+.PHONY: all focal audit train evaluate report test smoke clean
 
 all: focal
 
@@ -66,6 +66,59 @@ data/analysis/_FOCAL_SUCCESS: data/analysis/shock_embeddings.parquet
 
 audit: data/analysis/_FOCAL_SUCCESS
 	$(PYTHON) scripts/audit_news_coverage.py
+
+# ── Week 4-6 targets ─────────────────────────────────────────────────────────
+
+train: data/analysis/_FOCAL_SUCCESS
+	$(PYTHON) scripts/15_build_sequence_dataset.py
+	$(PYTHON) scripts/16_train_linear_baseline.py --category all --embedding shock
+	$(PYTHON) scripts/16_train_linear_baseline.py --category all --embedding raw
+	$(PYTHON) scripts/16_train_linear_baseline.py --category sports --embedding shock
+	$(PYTHON) scripts/16_train_linear_baseline.py --category sports --embedding raw
+	$(PYTHON) scripts/16_train_linear_baseline.py --category politics --embedding shock
+	$(PYTHON) scripts/16_train_linear_baseline.py --category politics --embedding raw
+	$(PYTHON) scripts/16_train_linear_baseline.py --category geopolitics --embedding shock
+	$(PYTHON) scripts/16_train_linear_baseline.py --category geopolitics --embedding raw
+	@echo "Linear baseline complete. Run scripts 17-19 manually on GPU (Colab)."
+	touch models/_TRAIN_LINEAR_SUCCESS
+
+evaluate: results/metrics_all.parquet
+	$(PYTHON) scripts/20_evaluate_all_models.py
+	$(PYTHON) scripts/21_hypothesis_tests.py
+	touch results/_EVALUATE_SUCCESS
+
+report: results/_EVALUATE_SUCCESS
+	jupyter nbconvert --to notebook --execute notebooks/05_baseline_performance.ipynb
+	jupyter nbconvert --to notebook --execute notebooks/06_architecture_comparison.ipynb
+	jupyter nbconvert --to notebook --execute notebooks/07_news_type_decomposition.ipynb
+
+# ── Testing and smoke-testing ─────────────────────────────────────────────────
+
+# Run W4-6 unit tests (no data or heavy models required).
+# W1-3 tests (test_embedder.py etc.) load the BGE model which triggers a BLAS
+# teardown segfault on Intel Mac when run together — they are excluded here.
+W46_TESTS := tests/test_bootstrap.py tests/test_dataset.py \
+             tests/test_forward.py tests/test_hparam_search.py \
+             tests/test_lstm.py tests/test_metrics.py \
+             tests/test_positional_encoding.py tests/test_purging.py \
+             tests/test_tcn.py tests/test_trainer.py tests/test_transformer.py
+
+test:
+	uv run pytest $(W46_TESTS) -q
+
+# End-to-end smoke test: generate synthetic data, run scripts 15/16/20/21, then clean up.
+# Verifies the full pipeline wiring without real W1-3 data.
+smoke:
+	$(PYTHON) scripts/make_synthetic_shock_embeddings.py \
+	    --out data/analysis/shock_embeddings.parquet --n 600 --seed 42
+	$(PYTHON) scripts/15_build_sequence_dataset.py
+	$(PYTHON) scripts/16_train_linear_baseline.py --category all --embedding shock
+	$(PYTHON) scripts/16_train_linear_baseline.py --category all --embedding raw
+	$(PYTHON) scripts/20_evaluate_all_models.py
+	$(PYTHON) scripts/21_hypothesis_tests.py
+	@echo "Smoke test complete. Cleaning up synthetic data..."
+	rm -f data/analysis/shock_embeddings.parquet
+	rm -rf models/checkpoints models/_TRAIN_LINEAR_SUCCESS results/
 
 # ── Housekeeping ───────────────────────────────────────────────────────────────
 

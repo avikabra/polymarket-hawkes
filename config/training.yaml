@@ -1,0 +1,61 @@
+# Weeks 4-6 training configuration
+
+split:
+  train_cutoff: "2025-01-01"
+  val_cutoff: "2025-07-01"
+
+linear:
+  cv_folds: 5
+  # alphas: 50 log-spaced values from 1e-4 to 1e4 (generated at runtime via np.logspace)
+
+lstm:
+  hidden_dim: 128
+  window_size: 5
+  dropout: 0.1
+  proj_dim: 256
+  use_gru: false
+  optimizer:
+    lr: 0.0001
+    weight_decay: 0.00001
+  max_epochs: 100
+  patience: 15
+  batch_size: 64
+  hparam_n_configs: 12
+
+transformer:
+  d_model: 256
+  nhead: 4
+  num_layers: 2
+  dim_feedforward: 512
+  dropout: 0.1
+  window_size: 20
+  tau_max_days: 30.0
+  optimizer:
+    lr: 0.00005
+    weight_decay: 0.0001
+  warmup_steps: 200
+  max_epochs: 100
+  patience: 15
+  batch_size: 32
+  hparam_n_configs: 12
+
+tcn:
+  channels: 256
+  num_blocks: 3
+  kernel_size: 3
+  dropout: 0.1
+  window_size: 10
+  optimizer:
+    lr: 0.0001
+    weight_decay: 0.00001
+  max_epochs: 80
+  patience: 12
+  batch_size: 64
+  hparam_n_configs: 10
+
+evaluation:
+  bootstrap_n: 1000
+  bootstrap_n_h2: 5000
+  ci_level: 0.95
+  brier_max_days_to_resolution: 7.0
+  seed: 42

@@ -6,6 +6,7 @@ on title+lede only. Do not confuse with the analysis embedding pass (script 11).
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -44,21 +45,35 @@ def _load_corpus() -> pd.DataFrame:
 
 
 def main() -> None:
-    EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
-    embedder = BGEEmbedder(DEFAULT_MODEL)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--batch-size", type=int, default=128,
+        help="Encoding batch size. Use 512+ on Colab/GPU; keep ≤128 on 8 GB Apple Silicon."
+    )
+    args = parser.parse_args()
 
-    # --- Articles (title + lede only — matching embeddings) ---
+    EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Load corpus and markets BEFORE loading the model so that the pandas DataFrames
+    # don't compete with MPS/CUDA model buffers on unified / limited memory.
     articles_df = _load_corpus()
     log.info("corpus loaded", rows=len(articles_df))
+    universe_df = pd.read_parquet(UNIVERSE_PATH)
+    log.info("universe loaded", markets=len(universe_df))
+
+    embedder = BGEEmbedder(DEFAULT_MODEL, batch_size=args.batch_size)
+
+    # --- Articles (title + lede only — matching embeddings) ---
     article_emb_df = embedder.embed_articles(
         articles_df, existing_parquet_path=str(ARTICLE_EMB_PATH)
     )
+    del articles_df  # free ~500MB before writing
     if not article_emb_df.empty:
         pq.write_table(pa.Table.from_pandas(article_emb_df), ARTICLE_EMB_PATH)
 
     # --- Markets (question + description) ---
-    universe_df = pd.read_parquet(UNIVERSE_PATH)
     market_emb_df = embedder.embed_markets(universe_df)
+    del universe_df
     pq.write_table(pa.Table.from_pandas(market_emb_df), MARKET_EMB_PATH)
 
     # --- FAISS index ---

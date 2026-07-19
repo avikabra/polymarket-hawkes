@@ -15,3 +15,18 @@ analysis:
   tuples: "data/analysis/tuples.parquet"
   shock_embeddings: "data/analysis/shock_embeddings.parquet"
   success: "data/analysis/_FOCAL_SUCCESS"
+models:
+  root: "models"
+  checkpoints: "models/checkpoints"
+  hparam_search: "models/hparam_search"
+  runs: "models/runs"
+results:
+  root: "results"
+  metrics_all: "results/metrics_all.parquet"
+  bootstrap_cis: "results/bootstrap_cis.parquet"
+  hypothesis_tests: "results/hypothesis_tests.json"
+reports:
+  root: "reports"
+  weeks_4_6: "reports/weeks_4_6_report.md"
+audit:
+  root: "audit"

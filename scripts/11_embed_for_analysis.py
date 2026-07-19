@@ -9,6 +9,7 @@ Run this AFTER script 09 (LLM verification) and script 06 (body fetch).
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -71,6 +72,13 @@ def _enrich_bodies(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--batch-size", type=int, default=32,
+        help="Encoding batch size. Use 256+ on Colab/GPU."
+    )
+    args = parser.parse_args()
+
     ANALYSIS_EMB_DIR.mkdir(parents=True, exist_ok=True)
 
     if not DB_PATH.exists():
@@ -109,7 +117,7 @@ def main() -> None:
 
     log.info("analysis embedding", model=model_name, articles=len(articles_df))
 
-    embedder = AnalysisEmbedder(model_name=model_name, max_body_chars=max_body_chars)
+    embedder = AnalysisEmbedder(model_name=model_name, max_body_chars=max_body_chars, batch_size=args.batch_size)
     emb_df = embedder.embed_articles(articles_df)
 
     out_path = ANALYSIS_EMB_DIR / "analysis_embeddings.parquet"

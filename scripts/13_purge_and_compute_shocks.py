@@ -3,10 +3,15 @@
 Reads:
   data/analysis/tuples.parquet           (market chars + reaction windows)
   data/news/analysis_embeddings/          (float32 analysis embeddings)
+  data/polymarket/universe.parquet        (parent_event_id lookup)
   config/analysis.yaml                    (lambda grid, CV folds, splits)
 
 Writes:
-  data/analysis/shock_embeddings.parquet  (article_id, shock_embedding, lambda_chosen, category, split)
+  data/analysis/shock_embeddings.parquet  (article_id, market_id, shock_embedding, raw_embedding,
+                                           lambda_chosen, category, split, canonical_ts,
+                                           parent_event_id, y_logit_1h, y_logit_6h, y_logit_24h,
+                                           valid_1h, valid_6h, valid_24h,
+                                           news_type, directional_impact)
 """
 
 from __future__ import annotations
@@ -93,6 +98,40 @@ def main() -> None:
         lambda_grid=lambda_grid,
         cv_folds=cv_folds,
     )
+
+    # --- Enrich with label/window/id columns from tuples_df and universe_df ---
+
+    # Columns from tuples_df to join in
+    tuples_label_cols = [
+        "article_id", "y_logit_1h", "y_logit_6h", "y_logit_24h",
+        "valid_1h", "valid_6h", "valid_24h",
+        "news_type", "directional_impact", "canonical_ts",
+    ]
+    available_tuples_cols = [c for c in tuples_label_cols if c in tuples_df.columns]
+    tuples_join = tuples_df[available_tuples_cols].drop_duplicates(subset=["article_id"])
+    result_df = result_df.merge(tuples_join, on="article_id", how="left")
+
+    # parent_event_id from universe_df via market_id
+    if "market_id" in result_df.columns and "parent_event_id" in universe_df.columns:
+        peid_map = universe_df[["market_id", "parent_event_id"]].drop_duplicates(subset=["market_id"])
+        peid_map["market_id"] = peid_map["market_id"].astype(str)
+        result_df["market_id"] = result_df["market_id"].astype(str)
+        result_df = result_df.merge(peid_map, on="market_id", how="left")
+
+    # Diagnostics
+    contract_cols = [
+        "article_id", "market_id", "shock_embedding", "raw_embedding", "category", "split",
+        "canonical_ts", "parent_event_id", "y_logit_1h", "y_logit_6h", "y_logit_24h",
+        "valid_6h", "news_type", "directional_impact",
+    ]
+    missing = [c for c in contract_cols if c not in result_df.columns]
+    if missing:
+        print(f"WARNING: missing contract columns: {missing}")
+    print(f"Columns: {list(result_df.columns)}")
+    for col in ["y_logit_6h", "valid_6h", "shock_embedding", "raw_embedding", "parent_event_id"]:
+        if col in result_df.columns:
+            n_null = result_df[col].isna().sum()
+            print(f"  {col}: {n_null} nulls / {len(result_df)} rows")
 
     SHOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
     pq.write_table(pa.Table.from_pandas(result_df), SHOCK_PATH)

@@ -185,6 +185,7 @@ def main() -> None:
             "magnitude": float(mag),
             "news_type": str(news_type),
             "embedding_source": embedding_source,
+            "canonical_ts": int(article_ts.timestamp()) if article_ts is not None else None,
             **chars,
             **windows,
         })

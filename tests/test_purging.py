@@ -54,8 +54,40 @@ def test_purging_returns_one_row_per_article():
     )
     assert len(result) == _N
     assert "article_id" in result.columns
+    assert "market_id" in result.columns
     assert "shock_embedding" in result.columns
+    assert "raw_embedding" in result.columns
     assert "lambda_chosen" in result.columns
+
+
+def test_purging_raw_embedding_has_correct_dim():
+    tuples_df, emb_df = _make_data(n=_N)
+    result = purge_by_category(
+        tuples_df=tuples_df,
+        embeddings_df=emb_df,
+        train_before="2100-01-01",
+        val_before="2200-01-01",
+        lambda_grid=[1.0],
+        cv_folds=3,
+    )
+    first_raw = result["raw_embedding"].iloc[0]
+    assert len(first_raw) == _D
+
+
+def test_purging_market_id_preserved():
+    tuples_df, emb_df = _make_data(n=_N)
+    result = purge_by_category(
+        tuples_df=tuples_df,
+        embeddings_df=emb_df,
+        train_before="2100-01-01",
+        val_before="2200-01-01",
+        lambda_grid=[1.0],
+        cv_folds=3,
+    )
+    # All market_ids should be non-null strings matching the original tuples
+    assert result["market_id"].notna().all()
+    expected_mids = set(tuples_df["market_id"].astype(str).tolist())
+    assert set(result["market_id"].astype(str).tolist()).issubset(expected_mids)
 
 
 def test_purging_shock_has_correct_dim():
