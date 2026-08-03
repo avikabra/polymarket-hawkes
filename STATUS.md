@@ -1,12 +1,14 @@
-# Week 1–3 Status — Polymarket News Shock Pipeline (Direction 4)
+# Pipeline Status — Polymarket News Shock Pipeline (Direction 4)
 
-> Checkpoint: 2026-07-10. All code is committed and pushed; the live-run chain is partially complete.
+> Checkpoint: 2026-08-03. All code (Weeks 1–6) is committed and pushed; the live-run chain is partially complete.
 
 ---
 
 ## Design of Record
 
-**README.md is authoritative.** This is a 14-script *news-shock-embeddings* pipeline (Direction 4).
+**README.md is authoritative.** This is a 21-script pipeline (Direction 4): scripts 01–14 build the
+*news-shock-embeddings* dataset (Weeks 1–3), scripts 15–21 do architecture training/evaluation
+(Weeks 4–6).
 
 The file `cc_prompts_thesis_pipeline.md` (untracked) describes the old 11-script *bivariate Hawkes*
 design and is stale — ignore it. The GitHub remote is still named `polymarket-hawkes` (historical).
@@ -15,7 +17,7 @@ design and is stale — ignore it. The GitHub remote is still named `polymarket-
 
 ## Code Status
 
-All 14 scripts and all `src/` modules are implemented. No stubs, no `NotImplementedError`.
+All 21 scripts and all `src/` modules are implemented. No stubs, no `NotImplementedError`.
 
 | Component | Files | Status |
 |-----------|-------|--------|
@@ -24,10 +26,11 @@ All 14 scripts and all `src/` modules are implemented. No stubs, no `NotImplemen
 | News corpus | `src/news/` — GDELT BigQuery, ESPN/RSS/NBA feeds, normalizer, fetcher | ✅ Complete |
 | Matching | `src/matching/` — BGEEmbedder, AnalysisEmbedder, candidate_finder, llm_verifier, dedup, faiss | ✅ Complete |
 | Analysis core | `src/analysis/` — market_chars, reaction_windows, purging (D4 econometrics) | ✅ Complete |
-| Scripts 01–14 | `scripts/` — full pipeline from discovery → shocks → gate | ✅ Complete |
+| Scripts 01–14 (Weeks 1–3) | `scripts/` — full pipeline from discovery → shocks → gate | ✅ Complete |
+| Scripts 15–21 (Weeks 4–6) | `scripts/` — sequence dataset, linear/LSTM/transformer/TCN training, evaluation, hypothesis tests | ✅ Complete (implemented in this repo — see below) |
 | Tests | `tests/` — ~15 test files, all substantive | ✅ Complete |
 | Config | `config/` — focal.yaml, paths.yaml, analysis.yaml, categories/ | ✅ Complete |
-| Makefile | `Makefile` — `make focal` runs full pipeline end-to-end | ✅ Complete |
+| Makefile | `Makefile` — `make focal` (W1-3), `make train`/`evaluate`/`report` (W4-6), `make smoke` (synthetic end-to-end wiring test) | ✅ Complete |
 
 **Primary deliverable:** `data/analysis/shock_embeddings.parquet` (one 768-dim shock embedding per
 verified article). Not yet produced — pipeline still needs to be run end-to-end.
@@ -83,16 +86,25 @@ If the gate fails, diagnose which category falls short before proceeding.
 
 ---
 
-## Weeks 4–6 (Future — not in this repo)
+## Weeks 4–6 (implemented in this repo, not yet run against real data)
 
 Architecture training and comparison, gated on script 14 passing:
-- Linear baseline (ridge on shock embeddings)
-- LSTM
-- Transformer
-- TCN
 
-Input: `data/analysis/shock_embeddings.parquet` + `data/analysis/dataset.parquet`.
-These will live in a separate repo or `src/models/` extension.
+| Script | Purpose |
+|--------|---------|
+| `15_build_sequence_dataset.py` | Build training sequences from `shock_embeddings.parquet` |
+| `16_train_linear_baseline.py` | Ridge linear baseline (shock vs. raw embeddings, per category) |
+| `17_train_lstm.py` | LSTM architecture (run manually on GPU/Colab per Makefile comment) |
+| `18_train_transformer.py` | Transformer architecture (GPU/Colab) |
+| `19_train_tcn.py` | TCN architecture (GPU/Colab) |
+| `20_evaluate_all_models.py` | Aggregate metrics across all architectures |
+| `21_hypothesis_tests.py` | Statistical hypothesis tests on results |
+
+Input: `data/analysis/shock_embeddings.parquet` + `data/analysis/dataset.parquet` (Weeks 1–3
+deliverables). Driven by `make train` / `make evaluate` / `make report`. `make smoke` exercises
+scripts 15/16/20/21 end-to-end against synthetic data
+(`scripts/make_synthetic_shock_embeddings.py`) without requiring the real Weeks 1–3 pipeline to
+have run — useful for verifying wiring in isolation.
 
 ---
 
