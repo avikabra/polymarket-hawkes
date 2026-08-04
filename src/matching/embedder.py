@@ -54,19 +54,29 @@ class BGEEmbedder:
         articles_df: pd.DataFrame,
         existing_parquet_path: str | None = None,
         chunk_size: int = 5000,
-    ) -> pd.DataFrame:
+        max_chunks: int | None = None,
+    ) -> tuple[pd.DataFrame, bool]:
         """Embed articles with incremental checkpointing.
 
         Writes each chunk to a _chunks/ subdirectory next to existing_parquet_path,
         then merges to existing_parquet_path at the end. Resumable: already-embedded
         article_ids are skipped. A crash loses at most chunk_size articles of work.
+
+        Args:
+            max_chunks: If set, stop after writing this many new chunks this run and
+                return without merging. Merge only happens when all articles are done.
+
+        Returns:
+            (DataFrame, done) where done=True means all articles are embedded and
+            the final merged parquet + FAISS index should be built; done=False means
+            we stopped early and the caller should re-run.
         """
         import pyarrow as pa
 
         pq_path = Path(existing_parquet_path) if existing_parquet_path else None
         chunks_dir = (pq_path.parent / "_chunks") if pq_path else None
 
-        # Collect already-embedded article_ids from final file or chunks
+        # Collect already-embedded article_ids from final file and any chunk files
         existing_ids: set[str] = set()
         if pq_path and pq_path.exists():
             existing_ids = set(
@@ -83,16 +93,34 @@ class BGEEmbedder:
         new_df = articles_df[~articles_df["article_id"].isin(existing_ids)].reset_index(drop=True)
         if new_df.empty:
             self._log.info("all articles already embedded")
-            return self._merge_chunks(pq_path, chunks_dir)
+            return self._merge_chunks(pq_path, chunks_dir), True
 
         total = len(new_df)
-        n_chunks = (total + chunk_size - 1) // chunk_size
-        self._log.info("embedding articles", total=total, chunks=n_chunks, chunk_size=chunk_size)
+        n_chunks_total = (total + chunk_size - 1) // chunk_size
+        n_chunks_this_run = n_chunks_total if max_chunks is None else min(max_chunks, n_chunks_total)
+        self._log.info(
+            "embedding articles",
+            total=total,
+            chunks_total=n_chunks_total,
+            chunks_this_run=n_chunks_this_run,
+            chunk_size=chunk_size,
+        )
 
         if chunks_dir:
             chunks_dir.mkdir(parents=True, exist_ok=True)
 
-        for i in range(n_chunks):
+        # Determine next chunk number to avoid collisions on resume
+        next_chunk_num = 0
+        if chunks_dir and chunks_dir.exists():
+            existing_nums = [
+                int(cp.stem.split("_")[1])
+                for cp in chunks_dir.glob("chunk_*.parquet")
+                if len(cp.stem.split("_")) >= 2 and cp.stem.split("_")[1].isdigit()
+            ]
+            if existing_nums:
+                next_chunk_num = max(existing_nums) + 1
+
+        for i in range(n_chunks_this_run):
             chunk = new_df.iloc[i * chunk_size : (i + 1) * chunk_size]
             texts = (
                 chunk["title"].fillna("") + " " + chunk["lede"].fillna("")
@@ -104,22 +132,42 @@ class BGEEmbedder:
             ]
             chunk_df = pd.DataFrame(rows)
             if chunks_dir:
-                pq.write_table(pa.Table.from_pandas(chunk_df), chunks_dir / f"chunk_{i:05d}.parquet")
-            self._log.info("chunk done", chunk=i + 1, of=n_chunks, embedded=len(chunk_df))
+                chunk_num = next_chunk_num + i
+                pq.write_table(
+                    pa.Table.from_pandas(chunk_df),
+                    chunks_dir / f"chunk_{chunk_num:05d}.parquet",
+                )
+            self._log.info("chunk done", chunk=i + 1, of=n_chunks_this_run, embedded=len(chunk_df))
 
-        return self._merge_chunks(pq_path, chunks_dir)
+        if n_chunks_this_run < n_chunks_total:
+            remaining = total - n_chunks_this_run * chunk_size
+            self._log.info(
+                "max_chunks reached, stopping early",
+                chunks_written=n_chunks_this_run,
+                remaining_articles=remaining,
+            )
+            return pd.DataFrame(columns=["article_id", "embedding"]), False
+
+        return self._merge_chunks(pq_path, chunks_dir), True
 
     def _merge_chunks(
         self, pq_path: Path | None, chunks_dir: Path | None
     ) -> pd.DataFrame:
-        """Merge chunk files into the final parquet and return the combined DataFrame."""
+        """Merge chunk files into the final parquet and return the combined DataFrame.
+
+        Atomic: writes to a .tmp file first, then os.replace() to the final path.
+        Chunks are deleted only after the replace succeeds, so a crash mid-merge
+        leaves all chunks intact.
+        """
         import pyarrow as pa
 
         parts: list[pd.DataFrame] = []
         if pq_path and pq_path.exists():
             parts.append(pq.read_table(pq_path).to_pandas())
+        chunk_paths: list[Path] = []
         if chunks_dir and chunks_dir.exists():
-            for cp in sorted(chunks_dir.glob("*.parquet")):
+            chunk_paths = sorted(chunks_dir.glob("*.parquet"))
+            for cp in chunk_paths:
                 parts.append(pq.read_table(cp).to_pandas())
 
         if not parts:
@@ -127,11 +175,13 @@ class BGEEmbedder:
 
         merged = pd.concat(parts, ignore_index=True).drop_duplicates(subset=["article_id"])
         if pq_path:
-            pq.write_table(pa.Table.from_pandas(merged), pq_path)
-            # Clean up chunks after successful merge
+            tmp_path = pq_path.with_suffix(".parquet.tmp")
+            pq.write_table(pa.Table.from_pandas(merged), tmp_path)
+            os.replace(tmp_path, pq_path)  # atomic on POSIX; same-dir guarantees same filesystem
+            # Only delete chunks after the final file is safely in place
+            for cp in chunk_paths:
+                cp.unlink()
             if chunks_dir and chunks_dir.exists():
-                for cp in chunks_dir.glob("*.parquet"):
-                    cp.unlink()
                 try:
                     chunks_dir.rmdir()
                 except OSError:

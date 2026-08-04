@@ -42,8 +42,9 @@ def test_embed_articles_skips_existing(embedder, tmp_path):
         {"article_id": existing_id, "title": "Old article", "lede": None},
         {"article_id": "new456", "title": "New article", "lede": "Some lede text"},
     ])
-    result = embedder.embed_articles(articles_df, existing_parquet_path=existing_path)
+    result, done = embedder.embed_articles(articles_df, existing_parquet_path=existing_path)
 
+    assert done is True
     assert len(result) == 2
     existing_row = result[result["article_id"] == existing_id].iloc[0]
     stored_emb = np.frombuffer(existing_row["embedding"], dtype=np.float16)

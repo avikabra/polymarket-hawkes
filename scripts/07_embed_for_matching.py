@@ -50,6 +50,11 @@ def main() -> None:
         "--batch-size", type=int, default=128,
         help="Encoding batch size. Use 512+ on Colab/GPU; keep ≤128 on 8 GB Apple Silicon."
     )
+    parser.add_argument(
+        "--max-chunks", type=int, default=None,
+        help="Stop after writing this many new chunk files and exit without merging or "
+             "building the FAISS index. Re-run until _SUCCESS exists. No limit by default."
+    )
     args = parser.parse_args()
 
     EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -64,10 +69,28 @@ def main() -> None:
     embedder = BGEEmbedder(DEFAULT_MODEL, batch_size=args.batch_size)
 
     # --- Articles (title + lede only — matching embeddings) ---
-    article_emb_df = embedder.embed_articles(
-        articles_df, existing_parquet_path=str(ARTICLE_EMB_PATH)
+    article_emb_df, done = embedder.embed_articles(
+        articles_df,
+        existing_parquet_path=str(ARTICLE_EMB_PATH),
+        max_chunks=args.max_chunks,
     )
     del articles_df  # free ~500MB before writing
+
+    if not done:
+        # Stopped early due to --max-chunks; chunks are saved, final merge pending.
+        chunks_dir = EMBEDDINGS_DIR / "_chunks"
+        embedded_so_far = sum(
+            len(pq.read_table(cp, columns=["article_id"]))
+            for cp in chunks_dir.glob("*.parquet")
+        ) if chunks_dir.exists() else 0
+        total_articles = len(pq.read_table(ARTICLE_EMB_PATH, columns=["article_id"])) \
+            if ARTICLE_EMB_PATH.exists() else 0
+        total_embedded = total_articles + embedded_so_far
+        print(f"Partial run complete. Chunks written this run: {args.max_chunks}")
+        print(f"Total articles embedded so far (merged + chunks): {total_embedded}")
+        print("Re-run this script to continue. _SUCCESS not written.")
+        return
+
     if not article_emb_df.empty:
         pq.write_table(pa.Table.from_pandas(article_emb_df), ARTICLE_EMB_PATH)
 

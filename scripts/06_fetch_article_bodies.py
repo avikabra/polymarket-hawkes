@@ -41,9 +41,20 @@ def _load_all_articles() -> pd.DataFrame:
             continue
         paths = list(d.rglob("*.parquet"))
         if paths:
-            parts.append(
-                pa.concat_tables([pq.read_table(p) for p in paths]).to_pandas()
-            )
+            # Use ParquetFile.read() instead of read_table() to bypass PyArrow's
+            # Hive-partition auto-discovery, which merges schemas across sibling
+            # directories and fails when 'source' is string in GDELT but
+            # dictionary-encoded in the feeds Hive partition layout.
+            dfs = []
+            for p in paths:
+                df = pq.ParquetFile(p).read().to_pandas()
+                for part in Path(p).parts:
+                    if "=" in part:
+                        k, v = part.split("=", 1)
+                        if k not in df.columns:
+                            df[k] = v
+                dfs.append(df)
+            parts.append(pd.concat(dfs, ignore_index=True))
     if not parts:
         return pd.DataFrame()
     df = pd.concat(parts, ignore_index=True)
@@ -112,12 +123,14 @@ async def main(verified_only: bool) -> None:
             else:
                 paywall += 1
 
-    tasks = [_fetch_one(row) for row in todo_df[["article_id", "url"]].to_dict("records")]
-    # Process in batches to keep memory bounded
-    batch_size = 500
-    for i in range(0, len(tasks), batch_size):
-        await asyncio.gather(*tasks[i:i + batch_size])
-        log.info("batch done", done=min(i + batch_size, len(tasks)), total=len(tasks))
+    # Stream in batches — never materialize all 475K coroutines at once (OOM on 8GB).
+    batch_size = 200
+    total_count = len(todo_df)
+    cols = todo_df[["article_id", "url"]]
+    for i in range(0, total_count, batch_size):
+        chunk = cols.iloc[i:i + batch_size].to_dict("records")
+        await asyncio.gather(*[_fetch_one(row) for row in chunk])
+        log.info("batch done", done=min(i + batch_size, total_count), total=total_count)
 
     total = success + paywall + failed
     print(f"Fetched:   {success} / {total}  ({100*success/max(total,1):.1f}%)")
