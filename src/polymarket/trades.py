@@ -2,7 +2,8 @@ import math
 
 from src.schemas import Trade
 
-USDC_ADDRESS = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174".lower()
+# The Goldsky orderbook subgraph represents USDC as assetId "0", not the ERC-20 address.
+_USDC_ASSET_ID = "0"
 
 
 def price_to_log_odds(price: float) -> float:
@@ -10,19 +11,34 @@ def price_to_log_odds(price: float) -> float:
     return math.log(p / (1.0 - p))
 
 
+def _order_hash_to_log_index(fill_id: str) -> int:
+    """Derive a stable integer tiebreaker from the fill id (txHash_orderHash).
+
+    The subgraph id has no logIndex field. We take the last 8 hex chars of the
+    orderHash part as an unsigned 32-bit integer — stable, bounded, and unique
+    enough to break ties within the same second for sort_trades.
+    """
+    parts = fill_id.split("_", 1)
+    order_hash = parts[1] if len(parts) == 2 else fill_id
+    # Strip leading "0x" if present, take last 8 hex digits
+    hex_str = order_hash[2:] if order_hash.startswith("0x") else order_hash
+    hex_part = hex_str[-8:] or "0"
+    return int(hex_part, 16)
+
+
 def normalize_fill(raw: dict, market_id: str, yes_token_id: str) -> Trade | None:
-    maker_asset = raw["makerAssetId"].lower()
-    taker_asset = raw["takerAssetId"].lower()
+    maker_asset = raw["makerAssetId"]
+    taker_asset = raw["takerAssetId"]
     maker_amt = int(raw["makerAmountFilled"])
     taker_amt = int(raw["takerAmountFilled"])
 
     if maker_amt == 0 or taker_amt == 0:
         return None
 
-    if taker_asset == USDC_ADDRESS:
+    if taker_asset == _USDC_ASSET_ID:
         usdc_amt, token_amt, token_id = taker_amt, maker_amt, maker_asset
         taker_paid_usdc = True
-    elif maker_asset == USDC_ADDRESS:
+    elif maker_asset == _USDC_ASSET_ID:
         usdc_amt, token_amt, token_id = maker_amt, taker_amt, taker_asset
         taker_paid_usdc = False
     else:
@@ -30,7 +46,7 @@ def normalize_fill(raw: dict, market_id: str, yes_token_id: str) -> Trade | None
 
     # USDC and CTF tokens both use 6 decimals, so ratio is the raw probability
     raw_p = usdc_amt / token_amt
-    is_yes = token_id == yes_token_id.lower()
+    is_yes = token_id == yes_token_id
     price_raw = max(0.001, min(0.999, raw_p if is_yes else 1.0 - raw_p))
     log_odds = math.log(price_raw / (1.0 - price_raw))
 
@@ -44,7 +60,7 @@ def normalize_fill(raw: dict, market_id: str, yes_token_id: str) -> Trade | None
         market_id=market_id,
         token_id=token_id,
         ts_s=int(raw["timestamp"]),
-        log_index=int(raw["logIndex"]),
+        log_index=_order_hash_to_log_index(raw["id"]),
         price_raw=price_raw,
         log_odds=log_odds,
         size_usdc=usdc_amt / 1_000_000,

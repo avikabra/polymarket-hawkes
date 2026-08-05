@@ -12,14 +12,17 @@ _GQL_URL = (
 )
 _PAGE_SIZE = 1000
 
+# The subgraph schema for OrderFilledEvent has no logIndex or blockNumber.
+# Pagination uses id_gt (id = txHash_orderHash, lexicographically sortable).
+# USDC is represented as assetId "0" in this subgraph, not the ERC-20 address.
 _QUERY = """\
-query GetFills($token: String!, $ts_gte: BigInt!, $ts_lt: BigInt!, $li_gt: Int!, $first: Int!) {
+query GetFills($token: String!, $ts_gte: BigInt!, $ts_lt: BigInt!, $id_gt: ID!, $first: Int!) {
   orderFilledEvents(
-    first: $first, orderBy: timestamp, orderDirection: asc,
-    where: { %s: $token, timestamp_gte: $ts_gte, timestamp_lt: $ts_lt, logIndex_gt: $li_gt }
+    first: $first, orderBy: id, orderDirection: asc,
+    where: { %s: $token, timestamp_gte: $ts_gte, timestamp_lt: $ts_lt, id_gt: $id_gt }
   ) {
-    timestamp logIndex blockNumber transactionHash
-    maker taker makerAssetId takerAssetId
+    id timestamp transactionHash
+    makerAssetId takerAssetId
     makerAmountFilled takerAmountFilled
   }
 }
@@ -44,7 +47,10 @@ class GoldskyClient:
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(_GQL_URL, json={"query": query, "variables": variables})
             resp.raise_for_status()
-        return resp.json().get("data", {}).get("orderFilledEvents", [])
+        payload = resp.json()
+        if "errors" in payload:
+            raise RuntimeError(f"GraphQL errors: {payload['errors']}")
+        return (payload.get("data") or {}).get("orderFilledEvents", [])
 
     async def _fetch_page(
         self,
@@ -53,10 +59,10 @@ class GoldskyClient:
         token: str,
         ts_gte: int,
         ts_lt: int,
-        li_gt: int,
+        id_gt: str,
         page: int,
     ) -> list[dict]:
-        cache_key = f"goldsky:{label}:{token}:{ts_gte}:{ts_lt}:{page}"
+        cache_key = f"goldsky2:{label}:{token}:{ts_gte}:{ts_lt}:{page}:{id_gt[:16]}"
         cached = self._cache.get(cache_key)
         if cached is not None:
             return json.loads(cached)
@@ -65,7 +71,7 @@ class GoldskyClient:
             "token": token,
             "ts_gte": str(ts_gte),
             "ts_lt": str(ts_lt),
-            "li_gt": li_gt,
+            "id_gt": id_gt,
             "first": _PAGE_SIZE,
         }
         data = await self._gql(query, variables)
@@ -78,21 +84,19 @@ class GoldskyClient:
         seen: set[str] = set()
 
         for query, label in ((_MAKER_QUERY, "maker"), (_TAKER_QUERY, "taker")):
-            cursor_ts, cursor_li, page = start_ts, -1, 0
+            cursor_id, page = "", 0
             while True:
                 fills = await self._fetch_page(
-                    query, label, token_id, cursor_ts, end_ts, cursor_li, page
+                    query, label, token_id, start_ts, end_ts, cursor_id, page
                 )
                 if not fills:
                     break
                 for fill in fills:
-                    key = f"{fill['transactionHash']}:{fill['logIndex']}"
+                    key = fill["id"]
                     if key not in seen:
                         seen.add(key)
                         yield fill
                 if len(fills) < _PAGE_SIZE:
                     break
-                last = fills[-1]
-                cursor_ts = int(last["timestamp"])
-                cursor_li = int(last["logIndex"])
+                cursor_id = fills[-1]["id"]
                 page += 1

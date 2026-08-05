@@ -30,6 +30,10 @@ def main() -> None:
     bars_root = Path(paths["polymarket"]["bars_1min"])
 
     trade_files = sorted(trades_root.rglob("part-*.parquet"))
+    if not trade_files:
+        raise RuntimeError(
+            f"no trade parquet files under {trades_root} — run script 02 first"
+        )
     total_bars = 0
     markets_processed = 0
 

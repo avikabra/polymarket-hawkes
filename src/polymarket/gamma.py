@@ -23,21 +23,32 @@ def _extract_tags(raw_tags: Any) -> list[str]:
 
 
 def _classify_market_type(tags: list[str]) -> str:
+    # Tag slugs observed on the live Gamma /events endpoint (markets themselves
+    # carry no tags; tags are inherited from their parent event). Ordered most-
+    # to least specific: a market tagged both "super-bowl" and "games" is a
+    # championship, not a single game.
     lowered = {t.lower() for t in tags}
-    if any("final" in t or "championship" in t or t == "super-bowl" for t in lowered):
+    if any("final" in t or "championship" in t or "super-bowl" in t for t in lowered):
         return "championship"
-    if any("season" in t for t in lowered):
-        return "season_long"
     if any("playoff" in t for t in lowered):
         return "playoff_series"
     if any("conference" in t for t in lowered):
         return "conference"
-    if any("single-game" in t or "single_game" in t for t in lowered):
+    if any(t in ("awards", "futures", "mvp") or "season" in t for t in lowered):
+        return "season_long"
+    if any(t in ("games", "todays-sports", "mnf") or "single" in t for t in lowered):
         return "single_game"
     return "other"
 
 
-_PRIMARY_TYPES = {"season_long", "championship", "playoff_series", "conference"}
+# Aligned with config/focal.yaml -> focal.market_types.primary
+_PRIMARY_TYPES = {
+    "season_long",
+    "championship",
+    "playoff_series",
+    "conference",
+    "single_game",
+}
 
 
 def _parse_dt(value: str | None) -> datetime | None:
@@ -73,6 +84,14 @@ class GammaClient:
         self._cache.set(key, _json.dumps(data).encode())
         return data
 
+    async def _resolve_tag_id(self, tag: str) -> str | None:
+        try:
+            data = await self._get(f"/tags/slug/{tag}", {})
+        except httpx.HTTPStatusError as exc:
+            self._log.warning("tag not found", extra={"tag": tag, "status": exc.response.status_code})
+            return None
+        return str(data.get("id")) if data.get("id") is not None else None
+
     async def list_markets(
         self,
         tag: str,
@@ -80,12 +99,20 @@ class GammaClient:
         start_after: str | None = None,
         end_before: str | None = None,
     ) -> list[dict]:
+        # The Gamma /markets endpoint silently ignores the `tag` param (every tag
+        # returns the same unfiltered page) and never populates a `tags` field.
+        # We instead query /events with the numeric `tag_id`, which filters
+        # correctly and carries tags; each event's markets inherit its tags.
+        tag_id = await self._resolve_tag_id(tag)
+        if tag_id is None:
+            return []
+
         results: list[dict] = []
         offset, limit = 0, 100
         while True:
             params: dict = {
                 "closed": str(closed).lower(),
-                "tag": tag,
+                "tag_id": tag_id,
                 "limit": limit,
                 "offset": offset,
             }
@@ -94,7 +121,7 @@ class GammaClient:
             if end_before:
                 params["end_date_max"] = end_before
             try:
-                page = await self._get("/markets", params)
+                page = await self._get("/events", params)
             except httpx.HTTPStatusError as exc:
                 # API returns 422 when offset exceeds available results — treat as end
                 self._log.warning(
@@ -104,7 +131,12 @@ class GammaClient:
                 break
             if not page:
                 break
-            results.extend(page)
+            for event in page:
+                event_tags = event.get("tags") or []
+                for mkt in event.get("markets") or []:
+                    mkt = dict(mkt)
+                    mkt["tags"] = event_tags  # markets inherit parent-event tags
+                    results.append(mkt)
             if len(page) < limit:
                 break
             offset += limit
@@ -123,10 +155,17 @@ class GammaClient:
         yes_token_id = token_ids[0] if len(token_ids) > 0 else ""
         no_token_id = token_ids[1] if len(token_ids) > 1 else ""
 
+        # Resolution is encoded in outcomePrices (["1","0"] -> YES, ["0","1"] -> NO);
+        # the `winner` field is never populated by the /events endpoint.
         winner = raw.get("winner") or ""
+        outcome_prices = _json.loads(raw.get("outcomePrices") or "[]")
         if winner in ("Yes", "YES"):
             resolved_outcome = "YES"
         elif winner in ("No", "NO"):
+            resolved_outcome = "NO"
+        elif len(outcome_prices) == 2 and float(outcome_prices[0]) == 1.0:
+            resolved_outcome = "YES"
+        elif len(outcome_prices) == 2 and float(outcome_prices[1]) == 1.0:
             resolved_outcome = "NO"
         else:
             resolved_outcome = "INVALID"

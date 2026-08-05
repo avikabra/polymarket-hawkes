@@ -2,17 +2,16 @@ import math
 
 from src.polymarket.trades import normalize_fill, price_to_log_odds
 
-USDC = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174".lower()
+# Goldsky subgraph represents USDC as assetId "0", not the ERC-20 address.
+# The fill id format is txHash_orderHash (no logIndex or blockNumber fields).
+USDC = "0"
 YES_TOKEN = "0xyes000000000000000000000000000000000000"
 NO_TOKEN = "0xno0000000000000000000000000000000000000"
 
 _YES_BUY_FILL = {
-    "transactionHash": "0xtx1",
-    "logIndex": "0",
-    "blockNumber": "50000000",
+    "id": "0xaaaa1111_0xbbbb2222",
+    "transactionHash": "0xaaaa1111",
     "timestamp": "1700000000",
-    "maker": "0xmaker",
-    "taker": "0xtaker",
     "makerAssetId": YES_TOKEN,     # maker sold YES tokens
     "takerAssetId": USDC,          # taker paid USDC
     "makerAmountFilled": "1000000",  # 1 YES token (6 dec)
@@ -21,12 +20,13 @@ _YES_BUY_FILL = {
 
 _NO_BUY_FILL = {
     **_YES_BUY_FILL,
-    "transactionHash": "0xtx2",
+    "id": "0xaaaa2222_0xcccc3333",
+    "transactionHash": "0xaaaa2222",
     "makerAssetId": NO_TOKEN,      # maker sold NO tokens
     "takerAmountFilled": "400000", # 0.4 USDC → NO price = 0.4 → YES price = 0.6
 }
 
-_ZERO_FILL = {**_YES_BUY_FILL, "transactionHash": "0xtx3", "makerAmountFilled": "0"}
+_ZERO_FILL = {**_YES_BUY_FILL, "id": "0xaaaa3333_0xdddd4444", "transactionHash": "0xaaaa3333", "makerAmountFilled": "0"}
 
 
 def test_normalize_yes_buy():

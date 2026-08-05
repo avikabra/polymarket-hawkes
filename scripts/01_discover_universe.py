@@ -114,9 +114,26 @@ async def main() -> None:
         markets.append(m)
 
     markets = _link_correlated(markets)
-    _to_parquet(markets, Path("data/polymarket/universe.parquet"))
 
     primary_types = set(focal["market_types"]["primary"])
+
+    # Loud failures: refuse to write a corrupt universe (matches the May-23 bug
+    # where every market had empty tags / zero primary sample and script 02
+    # silently produced no trades).
+    n_primary = sum(1 for m in markets if m.market_type in primary_types)
+    n_tagged = sum(1 for m in markets if m.tags)
+    if not markets:
+        raise RuntimeError("no markets discovered — check tag resolution / API filters")
+    if n_tagged == 0:
+        raise RuntimeError(
+            "all markets have empty tags — tag extraction is broken, refusing to write"
+        )
+    if n_primary == 0:
+        raise RuntimeError(
+            "primary-sample count is 0 — market_type classification is broken, refusing to write"
+        )
+
+    _to_parquet(markets, Path("data/polymarket/universe.parquet"))
     by_cat: dict[str, dict] = defaultdict(lambda: {"total": 0, "primary": 0, "secondary": 0})
     for m in markets:
         by_cat[m.category]["total"] += 1

@@ -38,6 +38,11 @@ async def main() -> None:
     focal = _load_yaml("config/focal.yaml")["focal"]
     universe = pd.read_parquet("data/polymarket/universe.parquet")
     primary = universe[universe["is_primary_sample"] == True]
+    if len(primary) == 0:
+        raise RuntimeError(
+            "no primary-sample markets in universe.parquet — cannot pull trades; "
+            "re-run script 01"
+        )
 
     start_ts = int(
         datetime.fromisoformat(focal["start_date"]).replace(tzinfo=timezone.utc).timestamp()
@@ -62,7 +67,7 @@ async def main() -> None:
         for token_id in filter(None, [yes_token_id, no_token_id]):
             try:
                 async for fill in client.iter_fills(token_id, start_ts, end_ts):
-                    key = f"{fill['transactionHash']}:{fill['logIndex']}"
+                    key = fill["id"]
                     fills_raw.setdefault(key, fill)
             except Exception as exc:
                 log.warning(
@@ -92,6 +97,12 @@ async def main() -> None:
     print(f"\nMarkets processed: {len(trades_per_market)}")
     print(f"Total trades: {total_trades}")
     print(f"Median trades per market: {median_trades:.0f}")
+
+    if total_trades == 0:
+        raise RuntimeError(
+            "FATAL: 0 trades returned across all markets — Goldsky query is broken "
+            "or all token IDs are wrong. _SUCCESS will NOT be written."
+        )
 
     success = Path("data/polymarket/trades/_SUCCESS")
     success.parent.mkdir(parents=True, exist_ok=True)
