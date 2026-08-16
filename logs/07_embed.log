@@ -1,0 +1,7 @@
+/Users/home/Desktop/MAIN/Coding/thesis-polymarket/src/news/normalizer.py:76: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  combined = pd.concat([feed_df, gdelt_df], ignore_index=True)
+{"timestamp": "2026-07-11T03:55:38.443544+00:00", "level": "INFO", "logger": "__main__", "message": "corpus loaded", "rows": 475484}
+{"timestamp": "2026-07-11T03:55:38.542219+00:00", "level": "INFO", "logger": "__main__", "message": "universe loaded", "markets": 2373}
+{"timestamp": "2026-07-11T03:55:53.360735+00:00", "level": "INFO", "logger": "src.matching.embedder", "message": "embedding articles", "total": 475484, "chunks": 96, "chunk_size": 5000}
+Batches:   0%|          | 0/40 [00:00<?, ?it/s]Batches:   2%|▎         | 1/40 [00:21<13:44, 21.15s/it]Batches:   5%|▌         | 2/40 [01:25<29:22, 46.38s/it]/usr/local/Cellar/python@3.11/3.11.14_1/Frameworks/Python.framework/Versions/3.11/lib/python3.11/multiprocessing/resource_tracker.py:254: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

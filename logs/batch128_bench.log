@@ -1,0 +1,8 @@
+loading corpus...
+/Users/home/Desktop/MAIN/Coding/thesis-polymarket/src/news/normalizer.py:76: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  combined = pd.concat([feed_df, gdelt_df], ignore_index=True)
+corpus done in 21.6s, sample_texts=256
+model loaded
+Batches:   0%|          | 0/2 [00:00<?, ?it/s]Batches:  50%|█████     | 1/2 [00:15<00:15, 15.28s/it]Batches: 100%|██████████| 2/2 [00:20<00:00,  9.19s/it]Batches: 100%|██████████| 2/2 [00:20<00:00, 10.12s/it]
+256 texts in 21.1s = 12.1 texts/sec shape=(256, 1024)
+Estimate for 475K: 10.9 hours

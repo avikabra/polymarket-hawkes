@@ -1,0 +1,8 @@
+loading corpus...
+/Users/home/Desktop/MAIN/Coding/thesis-polymarket/src/news/normalizer.py:76: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  combined = pd.concat([feed_df, gdelt_df], ignore_index=True)
+corpus loaded in 19.1s: 475484 texts
+loading BGE model...
+model loaded in 4.9s
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]/usr/local/Cellar/python@3.11/3.11.14_1/Frameworks/Python.framework/Versions/3.11/lib/python3.11/multiprocessing/resource_tracker.py:254: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

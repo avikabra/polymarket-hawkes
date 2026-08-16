@@ -1,0 +1,3 @@
+loading BGE model on CPU (offline)...
+loaded in 27.7s
+encoded 2 in 5.2s shape=(2, 1024)

@@ -1,0 +1,3 @@
+model loaded
+32 texts in 9.0s = 3.6 texts/sec
+Estimate for 475K texts with batch=32: 37.1 hours

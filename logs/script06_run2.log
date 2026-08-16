@@ -1,0 +1,9 @@
+/Users/home/Desktop/MAIN/Coding/thesis-polymarket/scripts/06_fetch_article_bodies.py:60: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  df = pd.concat(parts, ignore_index=True)
+{"timestamp": "2026-08-04T23:47:52.831865+00:00", "level": "INFO", "logger": "__main__", "message": "full-corpus mode", "todo": 475039}
+{"timestamp": "2026-08-04T23:49:43.490446+00:00", "level": "INFO", "logger": "__main__", "message": "batch done", "done": 200, "total": 475039}
+{"timestamp": "2026-08-04T23:52:07.257555+00:00", "level": "INFO", "logger": "__main__", "message": "batch done", "done": 400, "total": 475039}
+{"timestamp": "2026-08-04T23:54:00.679950+00:00", "level": "INFO", "logger": "__main__", "message": "batch done", "done": 600, "total": 475039}
+{"timestamp": "2026-08-04T23:55:26.123613+00:00", "level": "INFO", "logger": "__main__", "message": "batch done", "done": 800, "total": 475039}
+{"timestamp": "2026-08-04T23:56:26.577612+00:00", "level": "INFO", "logger": "__main__", "message": "batch done", "done": 1000, "total": 475039}
+{"timestamp": "2026-08-04T23:57:38.932069+00:00", "level": "INFO", "logger": "__main__", "message": "batch done", "done": 1200, "total": 475039}

@@ -1,0 +1,4 @@
+loading BGE model on MPS (offline)...
+loaded in 12.4s
+32 texts in 6.0s = 5.3 texts/sec shape=(32, 1024)
+Estimate for 475K with batch=32: 24.9 hours
