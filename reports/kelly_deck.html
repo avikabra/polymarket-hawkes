@@ -2,40 +2,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Company News Shocks in Polymarket — Data Review</title>
 <style>
-  :root { --ink:#161a20; --mut:#616a78; --accent:#123a63; --accent2:#0e6b7a; --line:#dfe3ea; }
+  :root { --ink:#1f2328; --mut:#6b7280; --accent:#1c3d5a; --accent2:#0e6b7a; --line:#e4e7ec; }
   * { box-sizing:border-box; }
-  body { margin:0; background:#e9ecf1; color:var(--ink);
-    font:17px/1.5 "Charter","Georgia","Iowan Old Style",serif; }
-  .slide { position:relative; background:#fff; max-width:980px; min-height:660px; margin:22px auto;
-    border-radius:6px; box-shadow:0 2px 14px rgba(20,20,50,.09); display:flex; flex-direction:column;
-    padding:0 0 46px; overflow:hidden; }
-  .slide h1 { font-size:1.55rem; line-height:1.2; margin:0; padding:20px 40px; color:#fff;
-    background:linear-gradient(100deg,var(--accent),var(--accent2)); letter-spacing:-.01em; }
-  .body { padding:26px 44px 8px; font-size:1.08rem; flex:1; }
-  .body p { margin:.45em 0; }
-  ul { list-style:none; margin:.3em 0; padding-left:0; }
-  li { position:relative; padding-left:1.5em; margin:.42em 0; }
-  li::before { content:"▶"; position:absolute; left:0; top:.16em; color:var(--accent2); font-size:.72em; }
+  body { margin:0; background:#eef0f3; color:var(--ink);
+    font:17px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .slide { position:relative; background:#fff; max-width:960px; min-height:640px; margin:22px auto;
+    border-radius:6px; box-shadow:0 1px 10px rgba(20,20,50,.06); display:flex; flex-direction:column;
+    padding:44px 56px 42px; }
+  .slide h1 { font-size:1.5rem; font-weight:650; line-height:1.28; margin:0 0 20px; color:var(--accent);
+    padding-bottom:12px; border-bottom:1px solid var(--line); letter-spacing:-.01em; }
+  .body { font-size:1.05rem; flex:1; }
+  .body p { margin:.5em 0; }
+  ul { list-style:none; margin:.4em 0; padding-left:0; }
+  li { position:relative; padding-left:1.25em; margin:.42em 0; }
+  li::before { content:"•"; position:absolute; left:.15em; top:0; color:#aab2bd; }
   li li::before { content:"–"; color:var(--mut); }
-  table { border-collapse:collapse; width:100%; margin:.8em 0; font-size:1.02rem;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
-  th, td { border:1px solid var(--line); padding:9px 13px; text-align:left; }
-  th { background:var(--accent); color:#fff; font-weight:600; }
-  tr:nth-child(even) td { background:#f5f7fa; }
-  td b { color:var(--accent); }
+  b { color:var(--accent); font-weight:650; }
+  table { border-collapse:collapse; width:100%; margin:.8em 0; font-size:1rem; }
+  th, td { border:1px solid var(--line); padding:8px 13px; text-align:left; }
+  th { background:#f4f6f9; color:var(--accent); font-weight:600; }
+  tr:nth-child(even) td { background:#fafbfc; }
   .foot { position:absolute; bottom:0; left:0; right:0; display:flex; justify-content:space-between;
-    padding:9px 40px; font-size:.74rem; color:var(--mut);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; border-top:1px solid var(--line); }
+    padding:9px 56px; font-size:.74rem; color:var(--mut); }
   .figs { display:flex; gap:14px; flex-wrap:wrap; margin-top:14px; }
   .figs img { flex:1; min-width:290px; max-width:100%; max-height:320px; object-fit:contain;
     border:1px solid var(--line); border-radius:5px; background:#fff; }
-  .slide.title { justify-content:center; align-items:center; text-align:center;
-    background:linear-gradient(150deg,var(--accent),var(--accent2)); color:#fff; padding-bottom:0; }
-  .slide.title h1 { background:none; font-size:2.5rem; padding:0 40px .3em; }
+  .slide.title { justify-content:center; text-align:center; }
+  .slide.title h1 { border:none; font-size:2.3rem; color:var(--accent); padding-bottom:0; margin-bottom:.3em; }
   .slide.title .body { flex:none; }
-  .slide.title .sub { color:#dbe6f0; font-size:1.05rem; margin:.15em 0;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
-  .slide.title .q { color:#fff; font-size:1.25rem; margin-top:1.1em; max-width:640px; }
+  .slide.title .sub { color:var(--mut); font-size:1.05rem; margin:.15em 0; }
+  .slide.title .q { color:var(--ink); font-size:1.2rem; margin:1.1em auto 0; max-width:640px; }
   @media print { body { background:#fff; }
     .slide { box-shadow:none; margin:0; border-radius:0; page-break-after:always; min-height:7.2in; } }
 </style></head><body><section class="slide title"><h1>Company News Shocks in Polymarket</h1><div class="body"><p class="sub">Late-September data review</p>
