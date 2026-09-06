@@ -153,6 +153,4 @@ What's there
 
 - Define the reaction target and rerun on the clean set. 
 
-- Run LSTM, Transformer, TCN, and cross-category comparisons. 
-
-- Request the news feed for the precision pass.
+- Run LSTM, Transformer, TCN, and cross-category comparisons.
