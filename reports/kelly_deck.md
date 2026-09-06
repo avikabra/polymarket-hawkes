@@ -1,34 +1,24 @@
-## Slide 1 — Company News Shocks in Polymarket
+## Slide 1: Company News Shocks in Polymarket
 
 Late-September data review 
  Avi Kabra · Applied Mathematics Senior Thesis · Yale University 
- Do prediction-market prices re-price when company news lands — and can we measure it cleanly?
+ Do prediction-market prices re-price when company news lands, and can we measure it cleanly?
 
-## Slide 2 — Roadmap
+## Slide 2: Since August, the pivot is done
 
-- Q1. What is the usable market sample? 
+- Was: sports, politics, and geopolitics; headline-only text; a preliminary null result. 
 
-- Q2. What does a real Polymarket reaction look like? 
+- Now: one area, individual-company contracts, with full real trade history and a complete log-odds analysis. 
 
-- Q3. Can we reliably match full articles to those contracts? 
+- Built the universe, pulled every trade, audited the news, and tested matching directly.
 
-- What changed since August · Next steps · Decisions & asks
+## Slide 3: Q1: Usable sample of 6,928 contracts across 86 companies
 
-## Slide 3 — Since August, the pivot is done
+- Individual companies only (public, plus a few private ladders). No sports, politics, crypto, or index markets. 
 
-- Was: sports + politics + geopolitics; headline-only text; a preliminary null result. 
+- Window: April 2024 to August 2026. 
 
-- Now: one area — individual-company contracts; full real trade history; a complete log-odds analysis. 
-
-- Built the universe → pulled every trade → audited the news → tested matching directly.
-
-## Slide 4 — Q1 — The usable sample: 6,928 contracts, 86 companies
-
-- Individual companies only (public + a few private ladders). No sports, politics, crypto, or index markets. 
-
-- Window: April 2024 – August 2026. 
-
-- Two contract types: monthly price strike ladders + one-off corporate events . 
+- Two contract types: monthly price strike ladders and one-off corporate events . 
  
  
 
@@ -36,15 +26,15 @@ Late-September data review
 
 | Price ladders (monthly strikes) | 6,174 
 
-| Corporate events (earnings, M&A, execs) | 470 
+| Corporate events (earnings, M&A, executives) | 470 
 
 | Revenue ladders | 170 
 
-| Valuation ladders (private cos.) | 110 
+| Valuation ladders (private companies) | 110 
 
 | Market-cap ladders | 4
 
-## Slide 5 — Q1 — A liquid core, but concentrated
+## Slide 4: Q1: A liquid core, but concentrated
 
 | Liquidity floor | Share of contracts 
 
@@ -60,13 +50,11 @@ Late-September data review
 
 - Total lifetime volume: $79M . 
 
-- Clean set (≥ 200 trades and ≥ 10 active trading days): 473 contracts . 
-
-- A real tradeable core exists; the thin tail is screened out before modelling.
+- Clean set (at least 200 trades and 10 active trading days): 473 contracts .
 
 ![fig3_trade_frequency_volume_company.png](figures/fig3_trade_frequency_volume_company.png)
 
-## Slide 6 — Q2 — A real reaction is mostly nothing, then a big jump
+## Slide 5: Q2: A real reaction is mostly nothing, then a big jump
 
 - Measured on 72.5M minute-by-minute observations from the liquid contracts. 
  
@@ -76,19 +64,19 @@ Late-September data review
 
 | Windows that are zero-move | 74.6% 
 
-| Distribution mean | ≈ 0 
+| Distribution mean | about 0 
 
 | Distribution std. dev. | 0.44 
  
  
 
-- Thesis: most of the time the market does not trade, so it does not move — this is the central fact.
+- Most of the time the market does not trade, so it does not move. This is the central fact.
 
 ![fig1_delta_distribution_company.png](figures/fig1_delta_distribution_company.png)
 
 ![fig2_zero_move_share_company.png](figures/fig2_zero_move_share_company.png)
 
-## Slide 7 — Q2 — When it moves, it moves a lot
+## Slide 6: Q2: When it moves, it moves a lot
 
 | Non-zero six-hour move | Log-odds 
 
@@ -100,107 +88,71 @@ Late-September data review
  
  
 
-- Reference: 0.40 → 0.44 is +0.16 log-odds; a 0.41 move is a decisive probability swing. 
+- Reference: 0.40 to 0.44 is +0.16 log-odds. A 0.41 move is a decisive probability swing. 
 
-- Thesis: the reaction is real and economically large — it is just sparse.
+- The reaction is real and economically large. It is just sparse.
 
-## Slide 8 — Q2 — We will not fix the target on 6-hour last-trade changes
+## Slide 7: Q2: Demeaning and normalizing cleans the series
 
-- Three-quarters of apparent "reactions" are inactivity, not genuine non-response. 
+- Removing each contract's mean and scaling to unit variance removes level differences across contracts (different strikes and regimes). 
 
-- Build and compare three target definitions: 
- 
- 
+- Every contract is then on one comparable scale, expressed in standard-deviation moves. 
 
-| # | Target definition | Rationale 
+- The standardized series is the form the model consumes.
 
-| 1 | Shorter window (1–2h) | less dead time 
+![fig4_demean_normalize_company.png](figures/fig4_demean_normalize_company.png)
 
-| 2 | Event-/trade-conditioned | measure around real activity — most promising 
+## Slide 8: Q3: Assessing GDELT as the article source
 
-| 3 | Clean liquid set only | remove structural zeros 
- 
- 
-- Final target is evidence-based — and yours to confirm.
-
-## Slide 9 — Q3 — We find the news, but not cleanly — and we measured how far it gets us
-
-- Free option (GDELT), tested directly on 40 real corporate events: 
+- The free option (GDELT), tested directly on 40 real corporate events: 
  
 
 | Test | Result | Verdict 
 
-| Event coverage (±2 days) | 78% | partial 
+| Event coverage (within 2 days) | 78% | partial 
 
 | Primary journalism share | 1.2% | buried in noise 
 
 | Body-text scrape yield | 69% | usable, biased 
 
-| Market resolution vs. timestamp | 24 min vs. 1 day | ≈ 60× too coarse
+| Market resolution vs. timestamp | 24 min vs. 1 day | about 60x too coarse
 
 ![fig6_gdelt_validation_company.png](figures/fig6_gdelt_validation_company.png)
 
-## Slide 10 — Q3 — Matching must be learned; the clean study needs a real feed
+## Slide 9: Q3: Matching approach
 
-- Naive name-matching is ~5% correct on a major company → matching must be learned and validated. 
+What's there 
+ 
 
-- Narrow first by company / ticker / time / contract dates → then a small model judges. 
+- Naive name-matching is about 5% correct on a major company. 
 
-- Now (free): build and validate the pipeline on GDELT + scraped text. 
+- GDELT supplies candidate links; usable article text recovers about 69% of the time. 
+ 
+ Next steps 
+ 
 
-- Final study: licensed newswire — for minute timestamps and paywalled full text. 
+- Filter candidates by company, ticker, time, and contract dates. 
 
-- Not a blocker: proceed now, add the clean feed for the precision pass.
+- A small model judges relevance; validate on a hand-audited sample. 
 
-## Slide 11 — What changed since the preliminary run
+- Add a licensed news feed for the precision pass.
+
+## Slide 10: What changed since the preliminary run
 
 | | Preliminary (August) | This review 
 
-| Universe | sports + politics + geo | one company-equity universe 
+| Universe | sports, politics, geopolitics | one company-equity universe 
 
 | Prices | partial, headline-timed | full real trade history 
 
-| Zeros | 66% — cause unclear | 74.6% — explained (inactivity) 
+| Zeros | 66% | 74.6%
 
-| Matching | assumed workable | gap measured, not guessed 
- 
- 
-- Thesis: the preliminary run showed where the data broke; this review fixes the measurement before touching models.
-
-## Slide 12 — Next steps — measurement first, models later
+## Slide 11: Next Steps
 
 - Build the matching pipeline on the free corpus; hand-audit a sample of matches. 
 
-- Implement the three reaction targets; compare on the clean set. 
+- Define the reaction target and rerun on the clean set. 
 
-- Stand up Yale (Bouchet) compute; request the news feed for the precision pass. 
+- Run LSTM, Transformer, TCN, and cross-category comparisons. 
 
-- Deferred, deliberately: LSTM / Transformer / TCN and cross-category comparisons — until clean matching and a usable target are proven.
-
-## Slide 13 — Decisions made — and where I need you
-
-| Decided this cycle 
-
-| Explore all three reaction targets, then choose 
-
-| Keep public equities + private valuation ladders (two panels) 
-
-| Model on the liquid subset (volume > $10k → 1,452 contracts) 
- 
- 
-
-| Where I need you 
-
-| Approve / route the news-feed request (Reuters, or Yale library entitlement) 
-
-| Confirm you will sponsor the Yale cluster account
-
-## Slide 14 — Questions for Professor Kelly
-
-- Reaction target: shorter window, event-conditioned, or clean-set-only — most credible as the primary estimand? 
-
-- Inferential unit: the news event, the individual contract, or a two-way event × contract structure? 
-
-- Scope: keep the private valuation ladders, or restrict to public equities? 
-
-- News feed: request Reuters directly, or start from the library's existing entitlement?
+- Request the news feed for the precision pass.
