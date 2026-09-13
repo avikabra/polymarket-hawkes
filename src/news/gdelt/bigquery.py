@@ -19,11 +19,52 @@ from google.cloud import bigquery
 from src.schemas import Article
 from src.utils import DiskCache, get_logger
 
-_TABLE = "gdelt-bq.gdeltv2.gkg"
+# `gkg` is unpartitioned (INT64 DATE column, cannot prune) and scans the whole
+# ~3.4 TB table regardless of date range. `gkg_partitioned` has the same schema
+# plus a native _PARTITIONTIME column that DOES prune. Always use the latter —
+# see scripts/audit_gdelt_company_coverage.py for the proven query shape.
+_TABLE = "gdelt-bq.gdeltv2.gkg_partitioned"
 _COLS = (
     "GKGRECORDID, DATE, DocumentIdentifier, SourceCommonName, "
     "V2Themes, V2Persons, V2Organizations, V2Locations, V2Tone, SharingImage"
 )
+
+# Soft default (CLI-overridable via --budget-usd) vs. hard ceiling (never
+# overridable — see _check_budget). BigQuery on-demand pricing: $6.25/TiB.
+_DEFAULT_BUDGET_USD = 5.0
+_HARD_CEILING_USD = 25.0
+_USD_PER_TIB = 6.25
+
+# Matches `gdelt-bq.gdeltv2.gkg` as a whole table identifier, not as a prefix
+# of `gdelt-bq.gdeltv2.gkg_partitioned` (no word boundary before the "_").
+_UNPARTITIONED_TABLE_RE = re.compile(r"\bgdelt-bq\.gdeltv2\.gkg\b")
+
+
+def _check_budget(bq_client: "bigquery.Client", sql: str, budget_usd: float) -> None:
+    """Raise if `sql` is unsafe to run: wrong table, or over budget/ceiling.
+
+    All three checks raise (never warn): a reference to the unpartitioned
+    `gdelt-bq.gdeltv2.gkg` table, a dry-run cost above the hard ceiling
+    (regardless of `budget_usd`), and a dry-run cost above `budget_usd`.
+    """
+    if _UNPARTITIONED_TABLE_RE.search(sql):
+        raise RuntimeError(
+            "query references the unpartitioned `gdelt-bq.gdeltv2.gkg` table — "
+            "this scans the whole table (~3.4 TB); use gkg_partitioned instead"
+        )
+
+    dry = bq_client.query(sql, job_config=bigquery.QueryJobConfig(dry_run=True, use_query_cache=False))
+    cost_usd = dry.total_bytes_processed / 1e12 * _USD_PER_TIB
+
+    if cost_usd > _HARD_CEILING_USD:
+        raise RuntimeError(
+            f"query would cost ${cost_usd:.2f}, over the ${_HARD_CEILING_USD:.2f} "
+            "hard ceiling — aborting (this ceiling cannot be overridden)"
+        )
+    if cost_usd > budget_usd:
+        raise RuntimeError(
+            f"query would cost ${cost_usd:.2f}, over the ${budget_usd:.2f} budget — aborting"
+        )
 
 
 class GDELTClient:
@@ -37,6 +78,7 @@ class GDELTClient:
         start_date: str,
         end_date: str,
         entity_filter: list[str],
+        budget_usd: float = _DEFAULT_BUDGET_USD,
     ) -> pd.DataFrame:
         """Query GDELT GKG between start_date and end_date (YYYYMMDD inclusive)."""
         filter_hash = hashlib.sha256(
@@ -48,22 +90,26 @@ class GDELTClient:
         if cached is not None:
             return pd.read_parquet(io.BytesIO(cached))
 
-        # DATE column is YYYYMMDDHHMMSS integer; filter as integers
-        start_int = int(start_date) * 1_000_000
-        end_dt = datetime.strptime(end_date, "%Y%m%d") + timedelta(days=1)
-        end_int = int(end_dt.strftime("%Y%m%d")) * 1_000_000
+        # _PARTITIONTIME is a native TIMESTAMP partition column; compare as
+        # ISO dates so BigQuery can prune (end is exclusive, start_date/end_date
+        # are both inclusive calendar days).
+        start_iso = datetime.strptime(start_date, "%Y%m%d").strftime("%Y-%m-%d")
+        end_iso = (datetime.strptime(end_date, "%Y%m%d") + timedelta(days=1)).strftime("%Y-%m-%d")
 
+        # Triple-quoted regex literal: entity names can contain apostrophes
+        # (e.g. "McDonald's"), which terminate a single-quoted SQL string.
         pattern = "|".join(re.escape(e) for e in entity_filter)
         sql = f"""
 SELECT {_COLS}
 FROM `{_TABLE}`
-WHERE DATE >= {start_int}
-  AND DATE < {end_int}
+WHERE _PARTITIONTIME >= '{start_iso}'
+  AND _PARTITIONTIME < '{end_iso}'
   AND REGEXP_CONTAINS(
       COALESCE(V2Persons, '') || ';' || COALESCE(V2Organizations, ''),
-      r'(?i)({pattern})'
+      r'''(?i)({pattern})'''
   )
 """
+        _check_budget(self._bq, sql, budget_usd)
         self._log.info("running BigQuery query", extra={"start": start_date, "end": end_date})
         df = self._bq.query(sql).to_dataframe()
         self._log.info("query complete", extra={"rows": len(df)})

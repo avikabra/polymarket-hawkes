@@ -136,6 +136,42 @@ for _canon, _aliases in COMPANY_DICT.items():
 
 _ALL_ALIASES.sort(key=len, reverse=True)  # longest-first avoids partial shadowing
 
+# ─────────────────────────────────────────────────────────────────────────────
+# GDELT entity-regex helpers (Weeks 7-9) — shared by scripts/04_pull_gdelt_corpus.py
+# and scripts/audit_gdelt_company_coverage.py. Promoted verbatim from the audit
+# script (pure refactor; behavior unchanged) so both stay in lockstep.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Aliases that are ordinary English words or shadow unrelated organisations.
+# Kept in the universe classifier above (where the question text disambiguates)
+# but excluded from the GDELT entity regex, where they would swamp the counts.
+AMBIGUOUS_GDELT_ALIASES = {
+    "ARM", "Block", "Block Inc", "Square", "Shell", "Visa", "Intel",
+    "Lucid", "AMC", "Coke", "Citi", "Amex",
+}
+
+
+def gdelt_entity_aliases(canon: str, aliases: list[str]) -> list[str]:
+    """Name-like aliases only: drop bare tickers and ambiguous common words."""
+    out = [
+        a for a in aliases
+        if not (a.isupper() and 2 <= len(a) <= 5) and a not in AMBIGUOUS_GDELT_ALIASES
+    ]
+    return out or ([canon] if canon not in AMBIGUOUS_GDELT_ALIASES else [])
+
+
+def build_gdelt_entity_patterns(company_dict: dict[str, list[str]] | None = None) -> dict[str, str]:
+    """Per-company `(?i)(alias1|alias2|...)` regex patterns for GDELT entity fields."""
+    company_dict = COMPANY_DICT if company_dict is None else company_dict
+    pats: dict[str, str] = {}
+    for canon, aliases in company_dict.items():
+        names = gdelt_entity_aliases(canon, aliases)
+        if not names:
+            continue
+        alt = "|".join(re.escape(n) for n in sorted(names, key=len, reverse=True))
+        pats[canon] = f"(?i)({alt})"
+    return pats
+
 COMPANY_NAME_PAT = re.compile(
     r"\b(" + "|".join(re.escape(n) for n in _ALL_ALIASES) + r")\b",
     re.IGNORECASE,

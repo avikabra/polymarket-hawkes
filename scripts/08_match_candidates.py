@@ -18,7 +18,7 @@ import yaml
 from tqdm import tqdm
 
 from src.matching.candidate_finder import CandidateFinder
-from src.utils import get_logger
+from src.utils import assert_covers, get_logger
 
 # Paths — keep in sync with config/paths.yaml
 EMBEDDINGS_DIR = Path("data/news/matching_embeddings")
@@ -125,6 +125,14 @@ def main() -> None:
 
     top_k = _load_top_k()
     universe_df = pd.read_parquet(UNIVERSE_PATH)
+    assert_covers(
+        [GDELT_DIR, FEEDS_DIR],
+        (cid for cid in universe_df["company_id"] if cid),
+        (
+            pd.Timestamp(universe_df["created_at"].min()).isoformat(),
+            pd.Timestamp(universe_df["end_at"].max()).isoformat(),
+        ),
+    )
     market_emb_df = pd.read_parquet(MARKET_EMB_PATH)
     market_emb_map: dict[str, np.ndarray] = {
         row["market_id"]: np.frombuffer(row["embedding"], dtype=np.float16)

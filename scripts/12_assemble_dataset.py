@@ -28,7 +28,7 @@ import yaml
 
 from src.analysis.market_chars import compute_market_chars
 from src.analysis.reaction_windows import compute_reaction_windows
-from src.utils import get_logger
+from src.utils import assert_covers, get_logger
 
 DB_PATH = Path("data/matches/matches.db")
 BARS_DIR = Path("data/polymarket/bars_1min")
@@ -117,6 +117,14 @@ def main() -> None:
     log.info("verified pairs", count=len(rows))
 
     universe_df = pd.read_parquet(UNIVERSE_PATH)
+    assert_covers(
+        [GDELT_DIR, FEEDS_DIR],
+        (cid for cid in universe_df["company_id"] if cid),
+        (
+            pd.Timestamp(universe_df["created_at"].min()).isoformat(),
+            pd.Timestamp(universe_df["end_at"].max()).isoformat(),
+        ),
+    )
     market_info: dict[str, dict] = {
         str(row["market_id"]): row.to_dict()
         for _, row in universe_df.iterrows()

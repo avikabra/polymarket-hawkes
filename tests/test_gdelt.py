@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+from src.news.gdelt.bigquery import _HARD_CEILING_USD, _check_budget
 from src.schemas import Article
 
 
@@ -78,3 +79,42 @@ def test_to_articles_schema_roundtrip(client):
         restored = Article(**dumped)
         assert restored.article_id == a.article_id
         assert restored.timestamp_precision == "day"
+
+
+def _mock_client_with_cost(cost_usd: float) -> MagicMock:
+    """A fake bigquery.Client whose dry-run query reports the given cost."""
+    mock_client = MagicMock()
+    mock_client.query.return_value.total_bytes_processed = cost_usd / 6.25 * 1e12
+    return mock_client
+
+
+_SAFE_SQL = "SELECT 1 FROM `gdelt-bq.gdeltv2.gkg_partitioned` WHERE _PARTITIONTIME >= '2024-01-01'"
+_UNPARTITIONED_SQL = "SELECT 1 FROM `gdelt-bq.gdeltv2.gkg` WHERE DATE >= 20240101000000"
+
+
+def test_check_budget_over_soft_budget_raises():
+    mock_client = _mock_client_with_cost(6.0)
+    with pytest.raises(RuntimeError, match="over the \\$5.00 budget"):
+        _check_budget(mock_client, _SAFE_SQL, budget_usd=5.0)
+
+
+def test_check_budget_under_soft_budget_passes():
+    mock_client = _mock_client_with_cost(1.0)
+    _check_budget(mock_client, _SAFE_SQL, budget_usd=5.0)  # must not raise
+
+
+def test_check_budget_over_hard_ceiling_raises_even_with_higher_soft_budget():
+    mock_client = _mock_client_with_cost(_HARD_CEILING_USD + 5)
+    with pytest.raises(RuntimeError, match="hard ceiling"):
+        _check_budget(mock_client, _SAFE_SQL, budget_usd=_HARD_CEILING_USD + 100)
+
+
+def test_check_budget_unpartitioned_table_reference_raises():
+    mock_client = _mock_client_with_cost(0.01)  # cheap, but wrong table
+    with pytest.raises(RuntimeError, match="unpartitioned"):
+        _check_budget(mock_client, _UNPARTITIONED_SQL, budget_usd=1000.0)
+
+
+def test_check_budget_partitioned_table_not_falsely_flagged():
+    mock_client = _mock_client_with_cost(0.01)
+    _check_budget(mock_client, _SAFE_SQL, budget_usd=5.0)  # must not raise

@@ -1,41 +1,20 @@
-# categories.yaml — read by script 05 (news feeds). Script 01 (discover_universe) no longer reads this as of Weeks 7-9.
+# categories.yaml — read ONLY by script 05 (news feeds). Script 01 (discover_universe)
+# no longer reads this as of Weeks 7-9.
+#
+# Weeks 7-9 pivot: universe is now ~86 individual companies, not sports/politics.
+# There is no free per-company RSS feed to enumerate for each of them, so this is
+# a small set of general business/markets wires, filtered downstream to specific
+# companies by entity matching (scripts 07-09). All URLs below were confirmed live
+# (HTTP 200, parseable RSS with <pubDate>) as of 2026-09-12.
 categories:
-  nfl:
-    polymarket_tags: ["nfl", "nfl-playoffs", "super-bowl"]
-    market_type: "season_long_primary"
-    feeds:
-      espn_sport: "football/nfl"
-      rss:
-        - url: "https://www.espn.com/espn/rss/nfl/news"
-          name: "espn_nfl"
-        - url: "https://apnews.com/apf-sports.rss"
-          name: "ap_sports"
-  nba:
-    polymarket_tags: ["nba", "nba-finals", "nba-playoffs"]
-    market_type: "season_long_primary"
-    feeds:
-      espn_sport: "basketball/nba"
-      nba_stats: true
-      rss:
-        - url: "https://www.espn.com/espn/rss/nba/news"
-          name: "espn_nba"
-        - url: "https://apnews.com/apf-sports.rss"
-          name: "ap_sports"
-  politics:
-    polymarket_tags: ["politics", "elections", "us-politics"]
-    market_type: "season_long_primary"
+  business:
     feeds:
       rss:
-        - url: "https://feeds.reuters.com/Reuters/PoliticsNews"
-          name: "reuters_politics"
-        - url: "https://rss.politico.com/politics-news.xml"
-          name: "politico"
-  geopolitics:
-    polymarket_tags: ["geopolitics", "world", "international"]
-    market_type: "season_long_primary"
-    feeds:
-      rss:
-        - url: "https://feeds.reuters.com/Reuters/worldNews"
-          name: "reuters_world"
-        - url: "https://apnews.com/apf-intlnews.rss"
-          name: "ap_world"
+        - url: "https://www.cnbc.com/id/10001147/device/rss/rss.html"
+          name: "cnbc_business"
+        - url: "https://feeds.marketwatch.com/marketwatch/topstories/"
+          name: "marketwatch_topstories"
+        - url: "https://feeds.a.dj.com/rss/RSSMarketsMain.xml"
+          name: "wsj_markets"
+        - url: "https://finance.yahoo.com/news/rssindex"
+          name: "yahoo_finance"

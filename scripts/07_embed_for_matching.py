@@ -21,7 +21,7 @@ import pyarrow.parquet as pq
 from src.matching.embedder import BGEEmbedder, DEFAULT_MODEL
 from src.matching.faiss_index import build_index, save_index
 from src.news.normalizer import load_feed_articles, load_gdelt_articles, normalize_and_deduplicate
-from src.utils import get_logger
+from src.utils import assert_covers, get_logger
 
 EMBEDDINGS_DIR = Path("data/news/matching_embeddings")
 GDELT_DIR = Path("data/news/gdelt_gkg")
@@ -59,12 +59,21 @@ def main() -> None:
 
     EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
 
+    universe_df = pd.read_parquet(UNIVERSE_PATH)
+    log.info("universe loaded", markets=len(universe_df))
+    assert_covers(
+        [GDELT_DIR, FEEDS_DIR],
+        (cid for cid in universe_df["company_id"] if cid),
+        (
+            pd.Timestamp(universe_df["created_at"].min()).isoformat(),
+            pd.Timestamp(universe_df["end_at"].max()).isoformat(),
+        ),
+    )
+
     # Load corpus and markets BEFORE loading the model so that the pandas DataFrames
     # don't compete with MPS/CUDA model buffers on unified / limited memory.
     articles_df = _load_corpus()
     log.info("corpus loaded", rows=len(articles_df))
-    universe_df = pd.read_parquet(UNIVERSE_PATH)
-    log.info("universe loaded", markets=len(universe_df))
 
     embedder = BGEEmbedder(DEFAULT_MODEL, batch_size=args.batch_size)
 

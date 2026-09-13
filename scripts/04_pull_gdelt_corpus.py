@@ -1,9 +1,34 @@
-"""Script 04: Pull GDELT GKG corpus for focal NFL/NBA markets."""
+"""Script 04: Pull GDELT GKG corpus for the company-contract universe.
+
+Entity filter is built from the companies ACTUALLY PRESENT in
+data/polymarket/universe.parquet (script 01's output), not the full
+COMPANY_DICT — companies with zero contracts are not worth paying to
+scan for.
+
+This script is recall-oriented: it emits CANDIDATE articles per company via a
+name/ticker regex over GDELT's V2Persons/V2Organizations fields (reusing
+company_filter.py's ambiguous-alias handling, e.g. dropping bare "ARM"/"Shell"
+that would swamp counts with unrelated hits). It does not attempt to resolve
+the ~5% ambiguous-name precision problem (e.g. "Meta", "Apple" as English
+words) — precision is enforced downstream by FAISS candidate matching (08)
+and LLM verification (09).
+
+Cost note: queries `gdelt-bq.gdeltv2.gkg_partitioned` (partition-pruned on
+_PARTITIONTIME) via GDELTClient, which also dry-runs and budget-checks the
+query before executing — see src/news/gdelt/bigquery.py.
+
+GDELT precision note: GDELT is day-precision only (bigquery.py hardcodes
+timestamp_precision="day"), so 14_feasibility_gate.py's >=60% minute-precision
+requirement will reject a GDELT-only corpus, and reaction_windows.py disables
+the 1h/6h reaction windows for day-precision articles. This is a known,
+accepted limitation of using GDELT as a source for now.
+"""
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import argparse
 import json
 
 import pandas as pd
@@ -12,41 +37,12 @@ import pyarrow.parquet as pq
 import yaml
 
 from src.news.gdelt.bigquery import GDELTClient
-from src.utils import get_logger
+from src.polymarket.company_filter import COMPANY_DICT, gdelt_entity_aliases
+from src.utils import get_logger, write_scope
 
 log = get_logger(__name__)
 
-_NFL_TERMS = [
-    "NFL", "National Football League", "Super Bowl",
-    "Kansas City Chiefs", "Philadelphia Eagles", "San Francisco 49ers",
-    "Dallas Cowboys", "New England Patriots", "Buffalo Bills",
-    "Miami Dolphins", "Baltimore Ravens", "Cincinnati Bengals",
-    "Cleveland Browns", "Pittsburgh Steelers", "Houston Texans",
-    "Indianapolis Colts", "Jacksonville Jaguars", "Tennessee Titans",
-    "Denver Broncos", "Las Vegas Raiders", "Los Angeles Chargers",
-    "New York Giants", "New York Jets", "Washington Commanders",
-    "Chicago Bears", "Detroit Lions", "Green Bay Packers",
-    "Minnesota Vikings", "Atlanta Falcons", "Carolina Panthers",
-    "New Orleans Saints", "Tampa Bay Buccaneers",
-    "Patrick Mahomes", "Josh Allen", "Jalen Hurts",
-]
-
-_NBA_TERMS = [
-    "NBA", "National Basketball Association", "NBA Finals",
-    "Los Angeles Lakers", "Boston Celtics", "Golden State Warriors",
-    "Milwaukee Bucks", "Miami Heat", "Denver Nuggets",
-    "Phoenix Suns", "Dallas Mavericks", "Oklahoma City Thunder",
-    "Sacramento Kings", "Minnesota Timberwolves", "New Orleans Pelicans",
-    "Memphis Grizzlies", "New York Knicks", "Brooklyn Nets",
-    "Philadelphia 76ers", "Toronto Raptors", "Chicago Bulls",
-    "Atlanta Hawks", "Charlotte Hornets", "Washington Wizards",
-    "Cleveland Cavaliers", "Detroit Pistons", "Indiana Pacers",
-    "San Antonio Spurs", "Houston Rockets", "Portland Trail Blazers",
-    "Utah Jazz", "Los Angeles Clippers",
-    "LeBron James", "Stephen Curry", "Nikola Jokic",
-]
-
-_TERMS_BY_CATEGORY = {"nfl": _NFL_TERMS, "nba": _NBA_TERMS}
+UNIVERSE_PATH = Path("data/polymarket/universe.parquet")
 
 
 def _load_yaml(path: str) -> dict:
@@ -54,7 +50,23 @@ def _load_yaml(path: str) -> dict:
         return yaml.safe_load(f)
 
 
+def _universe_company_dict(universe_path: Path) -> dict[str, list[str]]:
+    """COMPANY_DICT restricted to canonical names present in universe.parquet."""
+    universe_ids = set(pd.read_parquet(universe_path)["company_id"].unique())
+    return {
+        canon: aliases
+        for canon, aliases in COMPANY_DICT.items()
+        if canon.lower().replace(" ", "_") in universe_ids
+    }
+
+
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--budget-usd", type=float, default=5.0,
+                    help="abort the BigQuery pull if its dry-run cost exceeds this "
+                         "(soft; a non-overridable hard ceiling also applies, see bigquery.py)")
+    args = ap.parse_args()
+
     focal = _load_yaml("config/focal.yaml")["focal"]
 
     creds_path = Path("config/credentials.yaml")
@@ -68,15 +80,27 @@ def main() -> None:
         print("Copy config/credentials.yaml.template → config/credentials.yaml and fill in your project ID.")
         return
 
-    categories = focal["categories"]
-    entity_filter: list[str] = []
-    for cat in categories:
-        entity_filter.extend(_TERMS_BY_CATEGORY.get(cat, []))
-    entity_filter = list(dict.fromkeys(entity_filter))
+    if not UNIVERSE_PATH.exists():
+        print(f"ERROR: {UNIVERSE_PATH} not found — run script 01 first.")
+        return
+
+    company_dict = _universe_company_dict(UNIVERSE_PATH)
+    if not company_dict:
+        print("ERROR: no COMPANY_DICT entries match universe.parquet's company_ids.")
+        return
+    company_ids = {canon.lower().replace(" ", "_") for canon in company_dict}
+    entity_filter = sorted({
+        alias
+        for canon, aliases in company_dict.items()
+        for alias in gdelt_entity_aliases(canon, aliases)
+    })
+    log.info("built entity filter", extra={"n_companies": len(company_dict), "n_aliases": len(entity_filter)})
 
     # focal.yaml uses ISO dates; GDELTClient expects YYYYMMDD
-    start_date = focal["start_date"].replace("-", "")
-    end_date = focal["end_date"].replace("-", "")
+    start_date_iso = focal["discovery_start_date"]
+    end_date_iso = focal["discovery_end_date"]
+    start_date = start_date_iso.replace("-", "")
+    end_date = end_date_iso.replace("-", "")
 
     try:
         client = GDELTClient(project_id=project_id)
@@ -86,7 +110,7 @@ def main() -> None:
         return
 
     try:
-        df = client.pull_gkg_for_window(start_date, end_date, entity_filter)
+        df = client.pull_gkg_for_window(start_date, end_date, entity_filter, budget_usd=args.budget_usd)
     except Exception as exc:
         print(f"ERROR: BigQuery query failed: {exc}")
         return
@@ -115,8 +139,9 @@ def main() -> None:
     print(f"Total articles: {len(articles)}")
     print(f"Unique domains: {unique_domains}")
 
-    success = out_root / "_SUCCESS"
     out_root.mkdir(parents=True, exist_ok=True)
+    write_scope(out_root, company_ids, (start_date_iso, end_date_iso))
+    success = out_root / "_SUCCESS"
     success.touch()
     log.info("done", extra={"months": len(months_written), "total_articles": len(articles)})
 

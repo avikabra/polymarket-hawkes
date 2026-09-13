@@ -19,47 +19,18 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import argparse
-import re
 
 import yaml
 from dotenv import load_dotenv
 from google.cloud import bigquery
 
-from src.polymarket.company_filter import COMPANY_DICT
+from src.polymarket.company_filter import build_gdelt_entity_patterns
 from src.utils import get_logger
 
 log = get_logger(__name__)
 
 _TABLE = "`gdelt-bq.gdeltv2.gkg_partitioned`"
 _OUT = Path("data/news/audit")
-
-# Aliases that are ordinary English words or shadow unrelated organisations.
-# Kept in the universe classifier (where the question text disambiguates) but
-# excluded from the GDELT entity regex, where they would swamp the counts.
-_AMBIGUOUS = {
-    "ARM", "Block", "Block Inc", "Square", "Shell", "Visa", "Intel",
-    "Lucid", "AMC", "Coke", "Citi", "Amex",
-}
-
-
-def _entity_aliases(canon: str, aliases: list[str]) -> list[str]:
-    """Name-like aliases only: drop bare tickers and ambiguous common words."""
-    out = [
-        a for a in aliases
-        if not (a.isupper() and 2 <= len(a) <= 5) and a not in _AMBIGUOUS
-    ]
-    return out or ([canon] if canon not in _AMBIGUOUS else [])
-
-
-def _build_patterns() -> dict[str, str]:
-    pats: dict[str, str] = {}
-    for canon, aliases in COMPANY_DICT.items():
-        names = _entity_aliases(canon, aliases)
-        if not names:
-            continue
-        alt = "|".join(re.escape(n) for n in sorted(names, key=len, reverse=True))
-        pats[canon] = f"(?i)({alt})"
-    return pats
 
 
 def _struct_array(pats: dict[str, str]) -> str:
@@ -100,7 +71,7 @@ def main() -> None:
         raise RuntimeError("GCP project_id not configured in config/credentials.yaml")
     client = bigquery.Client(project=pid)
 
-    pats = _build_patterns()
+    pats = build_gdelt_entity_patterns()
     log.info("built entity patterns", extra={"n_companies": len(pats)})
     combined, struct = _combined(pats), _struct_array(pats)
     window = f"_PARTITIONTIME >= '{args.start}' AND _PARTITIONTIME < '{args.end}'"

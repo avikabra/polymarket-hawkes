@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pandas as pd
 from dotenv import load_dotenv
 
-from src.utils import get_logger
+from src.utils import assert_covers, get_logger
 
 load_dotenv()
 
@@ -176,6 +176,14 @@ async def main() -> None:
         return
 
     universe_df = pd.read_parquet(UNIVERSE_PATH)
+    assert_covers(
+        [GDELT_DIR, FEEDS_DIR],
+        (cid for cid in universe_df["company_id"] if cid),
+        (
+            pd.Timestamp(universe_df["created_at"].min()).isoformat(),
+            pd.Timestamp(universe_df["end_at"].max()).isoformat(),
+        ),
+    )
     market_questions: dict[str, str] = dict(
         zip(universe_df["market_id"].astype(str), universe_df["question"].astype(str))
     )
