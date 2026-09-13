@@ -1,5 +1,4 @@
 PYTHON       := uv run python
-FOCAL_CONFIG := config/focal.yaml
 
 .PHONY: all focal audit train evaluate report test smoke clean
 
@@ -10,7 +9,7 @@ focal: data/analysis/_FOCAL_SUCCESS
 # ── Polymarket pipeline ────────────────────────────────────────────────────────
 
 data/polymarket/universe.parquet:
-	$(PYTHON) scripts/01_discover_universe.py --config $(FOCAL_CONFIG)
+	$(PYTHON) scripts/01_discover_universe.py
 
 data/polymarket/trades/_SUCCESS: data/polymarket/universe.parquet
 	$(PYTHON) scripts/02_pull_trades.py
@@ -21,10 +20,10 @@ data/polymarket/bars_1min/_SUCCESS: data/polymarket/trades/_SUCCESS
 # ── News corpus ────────────────────────────────────────────────────────────────
 
 data/news/gdelt_gkg/_SUCCESS: data/polymarket/universe.parquet
-	$(PYTHON) scripts/04_pull_gdelt_corpus.py --config $(FOCAL_CONFIG)
+	$(PYTHON) scripts/04_pull_gdelt_corpus.py
 
 data/news/feeds/_SUCCESS: data/polymarket/universe.parquet
-	$(PYTHON) scripts/05_pull_category_feeds.py --config $(FOCAL_CONFIG)
+	$(PYTHON) scripts/05_pull_category_feeds.py
 
 # Body text — critical path; blocks analysis embeddings
 data/news/bodies/_SUCCESS: data/news/gdelt_gkg/_SUCCESS data/news/feeds/_SUCCESS

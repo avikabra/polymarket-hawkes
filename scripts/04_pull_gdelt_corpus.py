@@ -35,6 +35,7 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import yaml
+from dotenv import load_dotenv
 
 from src.news.gdelt.bigquery import GDELTClient
 from src.polymarket.company_filter import COMPANY_DICT, gdelt_entity_aliases
@@ -67,6 +68,8 @@ def main() -> None:
                          "(soft; a non-overridable hard ceiling also applies, see bigquery.py)")
     args = ap.parse_args()
 
+    load_dotenv()
+
     focal = _load_yaml("config/focal.yaml")["focal"]
 
     creds_path = Path("config/credentials.yaml")
@@ -78,16 +81,16 @@ def main() -> None:
     if not project_id or project_id == "YOUR_GCP_PROJECT_ID":
         print("ERROR: GCP project_id not configured in config/credentials.yaml")
         print("Copy config/credentials.yaml.template → config/credentials.yaml and fill in your project ID.")
-        return
+        sys.exit(1)
 
     if not UNIVERSE_PATH.exists():
         print(f"ERROR: {UNIVERSE_PATH} not found — run script 01 first.")
-        return
+        sys.exit(1)
 
     company_dict = _universe_company_dict(UNIVERSE_PATH)
     if not company_dict:
         print("ERROR: no COMPANY_DICT entries match universe.parquet's company_ids.")
-        return
+        sys.exit(1)
     company_ids = {canon.lower().replace(" ", "_") for canon in company_dict}
     entity_filter = sorted({
         alias
@@ -107,13 +110,13 @@ def main() -> None:
     except Exception as exc:
         print(f"ERROR: Failed to initialize GCP client: {exc}")
         print("Ensure GOOGLE_APPLICATION_CREDENTIALS is set or run: gcloud auth application-default login")
-        return
+        sys.exit(1)
 
     try:
         df = client.pull_gkg_for_window(start_date, end_date, entity_filter, budget_usd=args.budget_usd)
     except Exception as exc:
         print(f"ERROR: BigQuery query failed: {exc}")
-        return
+        sys.exit(1)
 
     articles = client.to_articles(df)
 

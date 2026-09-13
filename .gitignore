@@ -5,6 +5,7 @@ __pycache__/
 .env
 credentials.yaml
 config/*.json
+thesis-polymarket-slim.zip
 .venv/
 cc_prompts_thesis_pipeline.md
 google-cloud-sdk/
