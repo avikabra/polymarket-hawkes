@@ -6,3 +6,8 @@ focal:
     primary: ["season_long", "championship", "playoff_series", "conference", "single_game"]
   min_volume_usdc: 10000
   min_market_duration_days: 30
+  # Weeks 7-9 company-universe discovery window (script 01). Existing start_date/end_date/categories retained for scripts 02-05.
+  discovery_start_date: "2024-01-01"
+  discovery_end_date: "2026-08-29"
+  enumeration_sleep_inter_page: 0.25
+  enumeration_sleep_inter_day: 1.0

@@ -24,6 +24,7 @@ dependencies = [
     "pandera>=0.19",
     "db-dtypes>=1.6.0",
     "pyyaml>=6.0",
+    "matplotlib>=3.11.1",
 ]
 
 [build-system]

@@ -13,6 +13,7 @@ from __future__ import annotations
 import pandas as pd
 
 
+# TODO W7-9: switch _CATEGORY_ORDER to contract_family values ["monthly_strike","corporate_event"] before running scripts 12-21
 _CATEGORY_ORDER = ["nfl", "nba", "politics", "geopolitics"]
 
 

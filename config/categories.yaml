@@ -1,3 +1,4 @@
+# categories.yaml — read by script 05 (news feeds). Script 01 (discover_universe) no longer reads this as of Weeks 7-9.
 categories:
   nfl:
     polymarket_tags: ["nfl", "nfl-playoffs", "super-bowl"]

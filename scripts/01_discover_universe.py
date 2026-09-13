@@ -1,19 +1,27 @@
-"""Script 01: Discover the focal market universe from Gamma API."""
+"""Script 01: Discover the focal market universe from Gamma API (Weeks 7-9 rewrite).
+
+Discovery strategy: day-sliced enumeration via GammaClient.enumerate_markets
+(avoids the ~2,100-offset ceiling on the /markets endpoint).  Classification
+is delegated to classify_company_contract / extract_strike_fields.  No volume
+floor is applied at discovery; all accepted markets are written verbatim.
+"""
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import argparse
 import asyncio
 import json
 from collections import defaultdict
-from itertools import combinations
+from datetime import datetime, timezone
 
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import yaml
 
+from src.polymarket.company_filter import classify_company_contract, extract_strike_fields
 from src.polymarket.gamma import GammaClient
 from src.schemas import Market
 from src.utils import get_logger
@@ -21,38 +29,13 @@ from src.utils import get_logger
 log = get_logger(__name__)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
 def _load_yaml(path: str) -> dict:
     with open(path) as f:
         return yaml.safe_load(f)
-
-
-def _overlap_fraction(m1: Market, m2: Market) -> float:
-    overlap_start = max(m1.created_at, m2.created_at)
-    overlap_end = min(m1.end_at, m2.end_at)
-    overlap_secs = max(0.0, (overlap_end - overlap_start).total_seconds())
-    dur1 = (m1.end_at - m1.created_at).total_seconds()
-    dur2 = (m2.end_at - m2.created_at).total_seconds()
-    shorter = min(dur1, dur2)
-    return overlap_secs / shorter if shorter > 0 else 0.0
-
-
-def _link_correlated(markets: list[Market]) -> list[Market]:
-    by_cat: dict[str, list[Market]] = defaultdict(list)
-    for m in markets:
-        by_cat[m.category].append(m)
-
-    updated = {m.market_id: m for m in markets}
-    for cat_markets in by_cat.values():
-        for m1, m2 in combinations(cat_markets, 2):
-            if _overlap_fraction(m1, m2) > 0.5:
-                dur1 = (m1.end_at - m1.created_at).total_seconds()
-                dur2 = (m2.end_at - m2.created_at).total_seconds()
-                shorter, longer = (m1, m2) if dur1 < dur2 else (m2, m1)
-                if updated[shorter.market_id].parent_event_id is None:
-                    updated[shorter.market_id] = shorter.model_copy(
-                        update={"parent_event_id": longer.market_id}
-                    )
-    return list(updated.values())
 
 
 def _to_parquet(markets: list[Market], out_path: Path) -> None:
@@ -71,85 +54,196 @@ def _to_parquet(markets: list[Market], out_path: Path) -> None:
     pq.write_table(pa.Table.from_pandas(df), out_path)
 
 
+def _parse_iso_date(s: str) -> datetime:
+    """Parse an ISO date string (YYYY-MM-DD) to a UTC midnight datetime."""
+    return datetime.fromisoformat(s).replace(tzinfo=timezone.utc)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Main
+# ─────────────────────────────────────────────────────────────────────────────
+
 async def main() -> None:
     focal = _load_yaml("config/focal.yaml")["focal"]
-    categories = _load_yaml("config/categories.yaml")["categories"]
+
+    parser = argparse.ArgumentParser(description="Discover Polymarket company-contract universe.")
+    parser.add_argument(
+        "--start",
+        default=focal["discovery_start_date"],
+        help="ISO start date (inclusive), overrides focal.discovery_start_date",
+    )
+    parser.add_argument(
+        "--end",
+        default=focal["discovery_end_date"],
+        help="ISO end date (exclusive upper bound), overrides focal.discovery_end_date",
+    )
+    args = parser.parse_args()
+
+    start_dt = _parse_iso_date(args.start)
+    end_dt = _parse_iso_date(args.end)
+
+    log.info(
+        "starting discovery",
+        extra={"start": args.start, "end": args.end},
+    )
 
     client = GammaClient()
-    raw_by_id: dict[str, dict] = {}
-    cat_by_id: dict[str, str] = {}
-
-    for cat_name in focal["categories"]:
-        cat_cfg = categories.get(cat_name, {})
-        for tag in cat_cfg.get("polymarket_tags", []):
-            log.info("fetching", extra={"category": cat_name, "tag": tag})
-            try:
-                page = await client.list_markets(
-                    tag=tag,
-                    closed=True,
-                    start_after=focal.get("start_date"),
-                    end_before=focal.get("end_date"),
-                )
-            except Exception as exc:
-                log.warning("fetch failed", extra={"tag": tag, "error": str(exc)})
-                continue
-            for raw in page:
-                cid = raw.get("conditionId", "")
-                if cid and cid not in raw_by_id:
-                    raw_by_id[cid] = raw
-                    cat_by_id[cid] = cat_name
-
+    seen: set[str] = set()
     markets: list[Market] = []
-    for cid, raw in raw_by_id.items():
+
+    async for raw in client.enumerate_markets(
+        start_dt,
+        end_dt,
+        inter_page_sleep=focal["enumeration_sleep_inter_page"],
+        inter_day_sleep=focal["enumeration_sleep_inter_day"],
+    ):
+        cid = raw.get("conditionId", "")
+        if not cid or cid in seen:
+            continue
+        seen.add(cid)
+
+        cls = classify_company_contract(raw)
+        if cls is None:
+            continue
+
+        family = cls["contract_family"]
+        sf = (
+            extract_strike_fields(raw.get("question", ""), end_at=raw.get("endDate"))
+            if family.endswith("_ladder")
+            else None
+        )
+
         try:
-            m = client.parse_market(raw, category=cat_by_id[cid])
+            m = client.parse_market(raw, classification=cls, strike_fields=sf)
         except Exception as exc:
             log.warning("parse failed", extra={"condition_id": cid, "error": str(exc)})
             continue
-        dur_days = (m.end_at - m.created_at).days
-        if m.total_volume_usdc < focal["min_volume_usdc"]:
-            continue
-        if dur_days < focal["min_market_duration_days"]:
-            continue
+
         markets.append(m)
 
-    markets = _link_correlated(markets)
+    # ── Group assignment ─────────────────────────────────────────────────────
+    _LADDER_FAMILIES = {
+        "price_ladder", "market_cap_ladder", "valuation_ladder",
+        "revenue_ladder", "other_ladder",
+    }
+    updated: list[Market] = []
+    for m in markets:
+        if m.contract_family in _LADDER_FAMILIES:
+            expiry = m.price_expiry_month or m.end_at.strftime("%Y-%m")
+            metric = (
+                m.contract_family.replace("_ladder", "")
+                if m.contract_family != "other_ladder"
+                else "other"
+            )
+            group_id = f"{m.company_id}_{metric}_{expiry}"
+            group_role = "child"
+        else:
+            # corporate_event and any unrecognised family → standalone
+            group_id = m.market_id
+            group_role = "standalone"
+        updated.append(m.model_copy(update={"group_id": group_id, "group_role": group_role}))
+    markets = updated
 
-    primary_types = set(focal["market_types"]["primary"])
-
-    # Loud failures: refuse to write a corrupt universe (matches the May-23 bug
-    # where every market had empty tags / zero primary sample and script 02
-    # silently produced no trades).
-    n_primary = sum(1 for m in markets if m.market_type in primary_types)
-    n_tagged = sum(1 for m in markets if m.tags)
+    # ── Loud-fail guards ─────────────────────────────────────────────────────
     if not markets:
-        raise RuntimeError("no markets discovered — check tag resolution / API filters")
-    if n_tagged == 0:
         raise RuntimeError(
-            "all markets have empty tags — tag extraction is broken, refusing to write"
+            "no company contracts discovered — check date window, company dict, "
+            "or Gamma API availability"
         )
+
+    n_primary = sum(1 for m in markets if m.is_primary_sample)
     if n_primary == 0:
         raise RuntimeError(
-            "primary-sample count is 0 — market_type classification is broken, refusing to write"
+            "is_primary_sample count is 0 — contract_family classification is broken"
         )
 
-    _to_parquet(markets, Path("data/polymarket/universe.parquet"))
-    by_cat: dict[str, dict] = defaultdict(lambda: {"total": 0, "primary": 0, "secondary": 0})
-    for m in markets:
-        by_cat[m.category]["total"] += 1
-        if m.market_type in primary_types:
-            by_cat[m.category]["primary"] += 1
-        else:
-            by_cat[m.category]["secondary"] += 1
+    n_ladders = sum(1 for m in markets if m.contract_family.endswith("_ladder"))
+    n_events = sum(1 for m in markets if m.contract_family == "corporate_event")
+    if n_ladders == 0 and n_events == 0:
+        raise RuntimeError(
+            "no ladder or corporate_event contracts found — classifier produced no accepted markets"
+        )
 
-    print(f"\n{'category':<14} {'total':>6} {'primary':>8} {'secondary':>10}")
-    print("-" * 42)
-    for cat, counts in sorted(by_cat.items()):
-        print(f"{cat:<14} {counts['total']:>6} {counts['primary']:>8} {counts['secondary']:>10}")
-    print(f"\nTotal markets: {len(markets)}")
+    # ── Write universe.parquet ───────────────────────────────────────────────
+    universe_path = Path("data/polymarket/universe.parquet")
+    _to_parquet(markets, universe_path)
+    log.info("wrote universe", extra={"path": str(universe_path), "n": len(markets)})
+
+    # ── Build contract_groups.parquet sidecar ────────────────────────────────
+    groups: dict[str, dict] = {}
+    for m in markets:
+        gid = m.group_id
+        if gid not in groups:
+            # Derive ladder_metric from contract_family
+            if m.contract_family.endswith("_ladder"):
+                ladder_metric: str | None = m.contract_family.replace("_ladder", "") if m.contract_family != "other_ladder" else "other"
+            else:
+                ladder_metric = None
+            groups[gid] = {
+                "group_id": gid,
+                "company_name": m.company_name,
+                "company_id": m.company_id,
+                "ticker": m.ticker,
+                "contract_family": m.contract_family,
+                "ladder_metric": ladder_metric,
+                "price_expiry_month": m.price_expiry_month,
+                "member_market_ids": [],
+                "strikes": [],
+            }
+        groups[gid]["member_market_ids"].append(m.market_id)
+        # Collect strike_price for any ladder family
+        if m.contract_family.endswith("_ladder") and m.strike_price is not None:
+            groups[gid]["strikes"].append(m.strike_price)
+
+    group_rows = []
+    for g in groups.values():
+        g["strikes"] = sorted(set(g["strikes"]))
+        g["n_members"] = len(g["member_market_ids"])
+        group_rows.append(g)
+
+    cg_df = pd.DataFrame(group_rows)
+    cg_path = Path("data/polymarket/contract_groups.parquet")
+    cg_path.parent.mkdir(parents=True, exist_ok=True)
+    cg_df.to_parquet(cg_path, index=False)
+    log.info("wrote contract_groups", extra={"path": str(cg_path), "n_groups": len(group_rows)})
+
+    # ── Summary printout ─────────────────────────────────────────────────────
+    family_counts: dict[str, int] = defaultdict(int)
+    family_groups: dict[str, set] = defaultdict(set)
+    company_counts: dict[str, int] = defaultdict(int)
+    for m in markets:
+        family_counts[m.contract_family] += 1
+        family_groups[m.contract_family].add(m.group_id)
+        if m.company_name:
+            company_counts[m.company_name] += 1
+
+    _ALL_FAMILIES = (
+        "price_ladder", "market_cap_ladder", "valuation_ladder",
+        "revenue_ladder", "other_ladder", "corporate_event", "other",
+    )
+    print(f"\n{'contract_family':<22} {'total':>6}  {'groups':>6}")
+    print("-" * 38)
+    for fam in _ALL_FAMILIES:
+        cnt = family_counts.get(fam, 0)
+        if cnt == 0:
+            continue
+        grps = len(family_groups.get(fam, set()))
+        print(f"{fam:<22} {cnt:>6}  {grps:>6}")
+
+    top_companies = sorted(company_counts.items(), key=lambda x: -x[1])[:10]
+    print("\nTop companies by contract count:")
+    for name, cnt in top_companies:
+        print(f"  {name}: {cnt}")
+
+    print(f"\nTotal markets : {len(markets)}")
+    print(f"Total groups  : {len(group_rows)}")
+
+    # Example group_ids
+    example_gids = [g["group_id"] for g in group_rows[:5]]
+    print(f"Example group_ids: {example_gids}")
 
     Path("data/polymarket/_UNIVERSE_SUCCESS").touch()
-    log.info("done", extra={"n_markets": len(markets)})
+    log.info("done", extra={"n_markets": len(markets), "n_groups": len(group_rows)})
 
 
 if __name__ == "__main__":

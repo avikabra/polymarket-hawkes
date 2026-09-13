@@ -1,5 +1,7 @@
+import asyncio
 import json as _json
-from datetime import datetime, timezone
+from collections.abc import AsyncIterator
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -20,35 +22,6 @@ def _extract_tags(raw_tags: Any) -> list[str]:
     if isinstance(raw_tags[0], str):
         return raw_tags
     return [t.get("slug") or t.get("label", "") for t in raw_tags]
-
-
-def _classify_market_type(tags: list[str]) -> str:
-    # Tag slugs observed on the live Gamma /events endpoint (markets themselves
-    # carry no tags; tags are inherited from their parent event). Ordered most-
-    # to least specific: a market tagged both "super-bowl" and "games" is a
-    # championship, not a single game.
-    lowered = {t.lower() for t in tags}
-    if any("final" in t or "championship" in t or "super-bowl" in t for t in lowered):
-        return "championship"
-    if any("playoff" in t for t in lowered):
-        return "playoff_series"
-    if any("conference" in t for t in lowered):
-        return "conference"
-    if any(t in ("awards", "futures", "mvp") or "season" in t for t in lowered):
-        return "season_long"
-    if any(t in ("games", "todays-sports", "mnf") or "single" in t for t in lowered):
-        return "single_game"
-    return "other"
-
-
-# Aligned with config/focal.yaml -> focal.market_types.primary
-_PRIMARY_TYPES = {
-    "season_long",
-    "championship",
-    "playoff_series",
-    "conference",
-    "single_game",
-}
 
 
 def _parse_dt(value: str | None) -> datetime | None:
@@ -73,7 +46,12 @@ class GammaClient:
         key = path + "?" + "&".join(f"{k}={v}" for k, v in sorted(params.items()))
         cached = self._cache.get(key)
         if cached is not None:
-            return _json.loads(cached)
+            try:
+                return _json.loads(cached)
+            except _json.JSONDecodeError:
+                # Corrupt/truncated cache entry (e.g. partial write on ENOSPC);
+                # fall through to re-fetch rather than crash the enumeration.
+                pass
 
         await self._bucket.acquire()
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -142,14 +120,83 @@ class GammaClient:
             offset += limit
         return results
 
+    async def enumerate_markets(
+        self,
+        start: datetime,
+        end: datetime,
+        *,
+        page_limit: int = 100,
+        inter_page_sleep: float = 0.25,
+        inter_day_sleep: float = 1.0,
+    ) -> AsyncIterator[dict]:
+        """Yield raw market dicts for all markets whose endDate falls in [start, end).
+
+        Uses day-level slicing to stay under the ~2,100-offset ceiling.
+        Results are deduplicated within a day by conditionId; cross-day
+        deduplication is the caller's responsibility (use a seen-set on conditionId).
+        """
+        cur = start.replace(hour=0, minute=0, second=0, microsecond=0)
+        while cur < end:
+            next_day = cur + timedelta(days=1)
+            ds = cur.strftime("%Y-%m-%dT%H:%M:%SZ")
+            de = next_day.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+            seen_today: set[str] = set()
+
+            for closed_val in ("true", "false"):
+                offset = 0
+                while True:
+                    params: dict = {
+                        "limit": page_limit,
+                        "offset": offset,
+                        "end_date_min": ds,
+                        "end_date_max": de,
+                        "closed": closed_val,
+                    }
+                    try:
+                        page = await self._get("/markets", params)
+                    except httpx.HTTPStatusError as exc:
+                        # 422 = past offset ceiling; treat as end-of-results
+                        self._log.warning(
+                            "enumerate_markets pagination stopped",
+                            extra={"day": ds, "closed": closed_val, "offset": offset, "status": exc.response.status_code},
+                        )
+                        break
+                    if not page:
+                        break
+                    for mkt in page:
+                        cid = mkt.get("conditionId") or mkt.get("id") or ""
+                        if cid and cid not in seen_today:
+                            seen_today.add(cid)
+                            yield mkt
+                    if len(page) < page_limit:
+                        break
+                    offset += page_limit
+                    await asyncio.sleep(inter_page_sleep)
+
+            cur = next_day
+            await asyncio.sleep(inter_day_sleep)
+
     async def get_market(self, condition_id: str) -> dict:
         return await self._get(f"/markets/{condition_id}", {})
 
-    def parse_market(self, raw: dict, category: str) -> Any:
+    def parse_market(
+        self,
+        raw: dict,
+        category: str = "",
+        *,
+        classification: dict | None = None,
+        strike_fields: dict | None = None,
+    ) -> Any:
         from src.schemas import Market  # lazy to avoid any circular-import risk
 
+        contract_family = classification["contract_family"] if classification else "other"
+        is_primary_sample = contract_family != "other"
+
+        # category partition key: use contract_family when classified, else fall back to arg
+        effective_category = contract_family if classification else category
+
         tags = _extract_tags(raw.get("tags"))
-        market_type = _classify_market_type(tags)
 
         token_ids: list[str] = _json.loads(raw.get("clobTokenIds") or "[]")
         yes_token_id = token_ids[0] if len(token_ids) > 0 else ""
@@ -172,12 +219,23 @@ class GammaClient:
 
         volume_raw = raw.get("volume") or raw.get("volumeNum") or 0.0
 
+        company_name = classification.get("company_name") if classification else None
+        ticker = classification.get("ticker") if classification else None
+        company_id = classification.get("company_id", "") if classification else ""
+
+        strike_price = strike_fields.get("strike_price") if strike_fields else None
+        strike_direction = strike_fields.get("strike_direction") if strike_fields else None
+        price_expiry_month = strike_fields.get("price_expiry_month") if strike_fields else None
+
+        volume_1wk = float(raw.get("volume1wk") or 0.0)
+        volume_1mo = float(raw.get("volume1mo") or 0.0)
+
         return Market(
             market_id=raw["conditionId"],
             slug=raw.get("slug") or raw["conditionId"],
             question=raw.get("question", ""),
             description=raw.get("description") or "",
-            category=category,
+            category=effective_category,
             tags=tags,
             created_at=_parse_dt(raw.get("startDate")) or datetime.now(tz=timezone.utc),
             end_at=_parse_dt(raw.get("endDate")) or datetime.now(tz=timezone.utc),
@@ -186,7 +244,17 @@ class GammaClient:
             no_token_id=no_token_id,
             resolved_outcome=resolved_outcome,
             total_volume_usdc=float(volume_raw),
-            market_type=market_type,
+            contract_family=contract_family,
             parent_event_id=None,
-            is_primary_sample=market_type in _PRIMARY_TYPES,
+            is_primary_sample=is_primary_sample,
+            company_name=company_name,
+            ticker=ticker,
+            company_id=company_id,
+            strike_price=strike_price,
+            strike_direction=strike_direction,
+            price_expiry_month=price_expiry_month,
+            group_id="",
+            group_role="standalone",
+            volume_1wk=volume_1wk,
+            volume_1mo=volume_1mo,
         )

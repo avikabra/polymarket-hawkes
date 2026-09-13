@@ -23,6 +23,12 @@ def _load_yaml(path: str) -> dict:
 
 
 def main() -> None:
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--min-volume", type=float, default=0.0,
+                    help="skip markets with total_volume_usdc below this (bounds bar volume/disk)")
+    args = ap.parse_args()
+
     paths = _load_yaml("config/paths.yaml")
     universe = pd.read_parquet(paths["polymarket"]["universe"]).set_index("market_id")
 
@@ -45,9 +51,11 @@ def main() -> None:
             continue
 
         row = universe.loc[market_id]
+        if float(row.get("total_volume_usdc", 0) or 0) < args.min_volume:
+            continue
         market_open_ts = int(pd.Timestamp(row["created_at"]).timestamp())
         market_close_ts = int(pd.Timestamp(row["end_at"]).timestamp())
-        category = row["category"]
+        contract_family = row["contract_family"]  # W7-9: partition key was `category`
         end_dt = pd.Timestamp(row["end_at"])
         year, month = end_dt.year, end_dt.month
 
@@ -58,7 +66,7 @@ def main() -> None:
 
         out_path = (
             bars_root
-            / f"category={category}/year={year}/month={month:02d}/part-{market_id}.parquet"
+            / f"contract_family={contract_family}/year={year}/month={month:02d}/part-{market_id}.parquet"
         )
         out_path.parent.mkdir(parents=True, exist_ok=True)
         pq.write_table(pa.Table.from_pandas(pd.DataFrame(bars)), out_path)

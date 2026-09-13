@@ -6,6 +6,7 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
+# TODO W7-9: replace SPORTS_CATS / CAT_TO_INT / CAT_LABEL with contract_family mappings before running scripts 15-21
 SPORTS_CATS: frozenset[str] = frozenset(["nfl", "nba"])
 CAT_TO_INT: dict[str, int] = {"nfl": 0, "nba": 0, "politics": 1, "geopolitics": 2}
 CAT_LABEL: dict[int, str] = {0: "sports", 1: "politics", 2: "geopolitics"}

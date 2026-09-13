@@ -23,6 +23,7 @@ from sklearn.linear_model import RidgeCV
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 
+# TODO W7-9: switch _CAT_ORDER / _one_hot_category / _build_X to contract_family values before running scripts 12-21
 _CAT_ORDER = ["nfl", "nba", "politics", "geopolitics"]
 
 # Characteristics columns (must all be numeric after one-hot expansion)
