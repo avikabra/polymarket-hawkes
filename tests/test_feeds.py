@@ -67,6 +67,17 @@ def test_rss_day_precision_no_date():
     assert articles[0].published_at is None
 
 
+def test_rss_fetch_opts_into_cache_ttl():
+    # RSS is a live ticker, so it must request a bounded max_age_seconds
+    # rather than relying on DiskCache's default no-expiry get().
+    with patch("src.news.feeds.rss.DiskCache") as mock_cls:
+        mock_cls.return_value.get.return_value = _RSS_WITH_TIME
+        asyncio.run(RSSFetcher().fetch("https://example.com/feed", "test"))
+    _, kwargs = mock_cls.return_value.get.call_args
+    assert kwargs.get("max_age_seconds")
+    assert kwargs["max_age_seconds"] > 0
+
+
 def test_nba_stats_day_precision():
     with patch("src.news.feeds.nba_stats.DiskCache"):
         fetcher = NBAStatsFetcher()

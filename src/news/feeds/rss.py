@@ -9,8 +9,21 @@ import httpx
 from src.schemas import Article
 from src.utils import DiskCache, get_logger
 
+# Some publishers (CNBC, Yahoo Finance) block the default python-httpx UA
+# with 403/429; a realistic browser UA is enough to get a normal response.
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+    ),
+}
+
 
 class RSSFetcher:
+    # RSS feeds are live tickers, not stable archives; an hour bounds how
+    # stale a cached response can be without re-fetching on every run.
+    _CACHE_TTL_SECONDS = 3600
+
     def __init__(self, cache_dir: str = "data/.cache/rss") -> None:
         self._cache = DiskCache(cache_dir)
         self._log = get_logger(__name__)
@@ -23,12 +36,12 @@ class RSSFetcher:
 
     async def fetch(self, url: str, source_name: str) -> list[Article]:
         cache_key = f"rss:{url}"
-        cached = self._cache.get(cache_key)
+        cached = self._cache.get(cache_key, max_age_seconds=self._CACHE_TTL_SECONDS)
 
         if cached is not None:
             content = cached.decode()
         else:
-            async with httpx.AsyncClient(timeout=30) as client:
+            async with httpx.AsyncClient(timeout=30, headers=_HEADERS) as client:
                 resp = await client.get(url, follow_redirects=True)
                 resp.raise_for_status()
                 content = resp.text

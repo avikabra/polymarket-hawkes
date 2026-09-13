@@ -5,7 +5,9 @@
 # There is no free per-company RSS feed to enumerate for each of them, so this is
 # a small set of general business/markets wires, filtered downstream to specific
 # companies by entity matching (scripts 07-09). All URLs below were confirmed live
-# (HTTP 200, parseable RSS with <pubDate>) as of 2026-09-12.
+# (HTTP 200, current items with parseable pubDate) as of 2026-09-13. wsj_markets
+# (feeds.a.dj.com/rss/RSSMarketsMain.xml) was removed: it returns HTTP 200 but has
+# been frozen on the same ~20 items since 2025-01-27 (dead feed, not a fetch bug).
 categories:
   business:
     feeds:
@@ -14,7 +16,7 @@ categories:
           name: "cnbc_business"
         - url: "https://feeds.marketwatch.com/marketwatch/topstories/"
           name: "marketwatch_topstories"
-        - url: "https://feeds.a.dj.com/rss/RSSMarketsMain.xml"
-          name: "wsj_markets"
         - url: "https://finance.yahoo.com/news/rssindex"
           name: "yahoo_finance"
+        - url: "https://www.forbes.com/business/feed/"
+          name: "forbes_business"

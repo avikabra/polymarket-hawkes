@@ -1,6 +1,7 @@
 """Script 05: Pull category-specific RSS feeds (general business/markets wires)."""
 import asyncio
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -20,6 +21,7 @@ log = get_logger(__name__)
 
 UNIVERSE_PATH = Path("data/polymarket/universe.parquet")
 OUT_ROOT = Path("data/news/feeds")
+STALE_THRESHOLD_HOURS = 24  # a live news wire should have something newer than this
 
 
 def _load_yaml(path: str) -> dict:
@@ -88,11 +90,21 @@ async def main() -> None:
         sources[a.source].append(a)
 
     print(f"\nTotal articles (after dedup): {total}")
+    now = datetime.now(timezone.utc)
     for source, src_articles in sorted(sources.items()):
         n = len(src_articles)
         minute_pct = sum(1 for a in src_articles if a.timestamp_precision == "minute") / n * 100
         day_pct = sum(1 for a in src_articles if a.timestamp_precision == "day") / n * 100
-        print(f"  {source}: {n} articles | minute={minute_pct:.0f}% day={day_pct:.0f}%")
+        dated = [a.published_at for a in src_articles if a.published_at]
+        if dated:
+            newest, oldest = max(dated), min(dated)
+            age_hours = (now - newest).total_seconds() / 3600
+            staleness = f"newest={newest.date()} oldest={oldest.date()}"
+            if age_hours > STALE_THRESHOLD_HOURS:
+                staleness += f" WARNING: newest item is {age_hours:.0f}h old (stale feed?)"
+        else:
+            staleness = "no dated items"
+        print(f"  {source}: {n} articles | minute={minute_pct:.0f}% day={day_pct:.0f}% | {staleness}")
 
     if total:
         overall_minute = sum(1 for a in all_articles if a.timestamp_precision == "minute") / total * 100
