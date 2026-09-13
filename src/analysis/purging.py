@@ -23,15 +23,45 @@ from sklearn.linear_model import RidgeCV
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 
-# TODO W7-9: switch _CAT_ORDER / _one_hot_category / _build_X to contract_family values before running scripts 12-21
-_CAT_ORDER = ["nfl", "nba", "politics", "geopolitics"]
+# Fixed one-hot column order for the `category` feature, which now holds
+# contract_family values (project pivoted from sports to company contracts —
+# see CLAUDE.md). This MUST be a hardcoded, fixed-at-import-time list — not
+# derived from the data at fit time — because the same list is used to build
+# the design matrix for train, val, and test; if the column set instead came
+# from whatever categories happen to appear in a given split, different
+# splits could produce different column widths/order and silently corrupt
+# the out-of-sample residual computation. Sourced from (must be kept in sync
+# with) the contract_family Literal in src/schemas/market.py:21, which is the
+# closed-set source of truth.
+_CAT_ORDER = [
+    "price_ladder",
+    "market_cap_ladder",
+    "valuation_ladder",
+    "revenue_ladder",
+    "other_ladder",
+    "corporate_event",
+    "other",
+]
 
 # Characteristics columns (must all be numeric after one-hot expansion)
 _CHAR_COLS = ["price_at_article", "time_to_resolution_days", "volume_24h_usdc", "prior_article_count"]
 
 
 def _one_hot_category(df: pd.DataFrame) -> pd.DataFrame:
-    """Add integer columns for each category."""
+    """Add integer columns for each category.
+
+    Raises ValueError on any category value outside _CAT_ORDER instead of
+    silently emitting an all-zero row — an inert all-zero one-hot is exactly
+    the bug this replaces (sports categories against contract_family data),
+    so an unknown value here should fail loudly rather than repeat it.
+    """
+    unknown = set(df["category"].unique()) - set(_CAT_ORDER)
+    if unknown:
+        raise ValueError(
+            f"Unknown category value(s) {sorted(unknown)} not in _CAT_ORDER {_CAT_ORDER}. "
+            "Update _CAT_ORDER (kept in sync with the contract_family Literal in "
+            "src/schemas/market.py) rather than silently dropping them."
+        )
     for cat in _CAT_ORDER:
         df[f"cat_{cat}"] = (df["category"] == cat).astype(float)
     return df

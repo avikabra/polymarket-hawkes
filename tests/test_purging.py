@@ -4,15 +4,15 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.analysis.purging import purge_by_category
+from src.analysis.purging import _CAT_ORDER, _one_hot_category, purge_by_category
 
 _RNG = np.random.default_rng(42)
 _N = 60   # number of training articles
 _D = 16   # embedding dimension
-_N_FEATURES = 8  # price + time + volume + prior_count + 4 category one-hots
+_N_FEATURES = 4 + len(_CAT_ORDER)  # price + time + volume + prior_count + category one-hots
 
 
-def _make_data(n: int = _N, d: int = _D, split: str = "train") -> tuple[pd.DataFrame, pd.DataFrame]:
+def _make_data(n: int = _N, d: int = _D, split: str = "train", category: str = "price_ladder") -> tuple[pd.DataFrame, pd.DataFrame]:
     """Create synthetic (tuples_df, embeddings_df) with known linear structure."""
     X = _RNG.standard_normal((n, _N_FEATURES)).astype(np.float32)
 
@@ -27,7 +27,7 @@ def _make_data(n: int = _N, d: int = _D, split: str = "train") -> tuple[pd.DataF
         tuples_rows.append({
             "article_id": f"a{i}",
             "market_id": f"m{i}",
-            "category": "nfl",
+            "category": category,
             "price_at_article": float(X[i, 0]),
             "time_to_resolution_days": float(X[i, 1]),
             "volume_24h_usdc": float(X[i, 2]),
@@ -147,3 +147,56 @@ def test_purging_oos_residuals_are_computed():
     oos_result = result[result["article_id"].isin(tuples_oos["article_id"].tolist())]
     assert len(oos_result) == n_oos
     assert (oos_result["split"] == "val").all()
+
+
+def test_one_hot_produces_expected_contract_family_columns():
+    """One-hot column set must match the real contract_family values, not the old sports set."""
+    df = pd.DataFrame({"category": ["price_ladder", "corporate_event", "valuation_ladder"]})
+    out = _one_hot_category(df.copy())
+
+    expected_cols = {f"cat_{c}" for c in _CAT_ORDER}
+    actual_cat_cols = {c for c in out.columns if c.startswith("cat_")}
+    assert actual_cat_cols == expected_cols
+
+    # Sanity: old sports columns must be gone, and the set is the schema's contract_family values.
+    assert "cat_nfl" not in out.columns
+    assert set(_CAT_ORDER) == {
+        "price_ladder",
+        "market_cap_ladder",
+        "valuation_ladder",
+        "revenue_ladder",
+        "other_ladder",
+        "corporate_event",
+        "other",
+    }
+
+    # Rows one-hot correctly against the fixed order.
+    assert out.loc[0, "cat_price_ladder"] == 1.0
+    assert out.loc[0, "cat_corporate_event"] == 0.0
+    assert out.loc[1, "cat_corporate_event"] == 1.0
+    assert out.loc[2, "cat_valuation_ladder"] == 1.0
+
+
+def test_one_hot_unknown_category_raises():
+    """An unseen category must fail loudly, not silently produce an all-zero (inert) row —
+    a silent all-zero one-hot is exactly the bug being fixed here (stale sports categories
+    against contract_family data)."""
+    df = pd.DataFrame({"category": ["price_ladder", "nfl"]})
+    with pytest.raises(ValueError, match="nfl"):
+        _one_hot_category(df.copy())
+
+
+def test_one_hot_column_order_and_width_stable_across_category_subsets():
+    """The one-hot column set/order must not depend on which categories are present in the
+    input — required so train/val/test splits (which may see different category subsets)
+    always produce the same feature width/order for the ridge regression."""
+    df_full = pd.DataFrame({"category": list(_CAT_ORDER)})
+    df_subset = pd.DataFrame({"category": ["price_ladder"]})
+
+    out_full = _one_hot_category(df_full.copy())
+    out_subset = _one_hot_category(df_subset.copy())
+
+    full_cat_cols = [c for c in out_full.columns if c.startswith("cat_")]
+    subset_cat_cols = [c for c in out_subset.columns if c.startswith("cat_")]
+    assert full_cat_cols == subset_cat_cols
+    assert len(full_cat_cols) == len(_CAT_ORDER)
