@@ -1,7 +1,12 @@
-"""Script 07: Embed news corpus (title+lede) and market universe with BGE-large; build FAISS index.
+"""Script 07: Embed news corpus (title+lede) and contract groups with BGE-large; build FAISS index.
 
 This is the MATCHING embedding pass. It uses BAAI/bge-large-en-v1.5 (float16, 1024-dim)
-on title+lede only. Do not confuse with the analysis embedding pass (script 11).
+on title+lede (articles) / group-level ladder text (contract groups). Do not confuse
+with the analysis embedding pass (script 11).
+
+Article embedding does NOT depend on body-fetch (script 06) having run — it uses only
+title+lede via the shared normalizer (src/news/normalizer.py), which is GDELT-metadata-
+only for GDELT rows and collection-time lede for RSS rows.
 """
 
 from __future__ import annotations
@@ -20,16 +25,17 @@ import pyarrow.parquet as pq
 
 from src.matching.embedder import BGEEmbedder, DEFAULT_MODEL
 from src.matching.faiss_index import build_index, save_index
-from src.news.normalizer import load_feed_articles, load_gdelt_articles, normalize_and_deduplicate
+from src.news.normalizer import build_matching_text_corpus
 from src.utils import assert_covers, get_logger
 
 EMBEDDINGS_DIR = Path("data/news/matching_embeddings")
 GDELT_DIR = Path("data/news/gdelt_gkg")
 FEEDS_DIR = Path("data/news/feeds")
 UNIVERSE_PATH = Path("data/polymarket/universe.parquet")
+CONTRACT_GROUPS_PATH = Path("data/polymarket/contract_groups.parquet")
 
 ARTICLE_EMB_PATH = EMBEDDINGS_DIR / "article_embeddings.parquet"
-MARKET_EMB_PATH = EMBEDDINGS_DIR / "market_embeddings.parquet"
+GROUP_EMB_PATH = EMBEDDINGS_DIR / "group_embeddings.parquet"
 FAISS_INDEX_PATH = EMBEDDINGS_DIR / "articles.faiss"
 ARTICLE_ID_IDX_PATH = EMBEDDINGS_DIR / "article_id_index.parquet"
 
@@ -37,11 +43,7 @@ log = get_logger(__name__)
 
 
 def _load_corpus() -> pd.DataFrame:
-    gdelt_df = load_gdelt_articles(str(GDELT_DIR)) if GDELT_DIR.exists() else pd.DataFrame()
-    feed_df = load_feed_articles(str(FEEDS_DIR)) if FEEDS_DIR.exists() else pd.DataFrame()
-    if gdelt_df.empty and feed_df.empty:
-        return pd.DataFrame()
-    return normalize_and_deduplicate(gdelt_df, feed_df)
+    return build_matching_text_corpus(str(GDELT_DIR), str(FEEDS_DIR))
 
 
 def main() -> None:
@@ -60,7 +62,8 @@ def main() -> None:
     EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
 
     universe_df = pd.read_parquet(UNIVERSE_PATH)
-    log.info("universe loaded", markets=len(universe_df))
+    contract_groups_df = pd.read_parquet(CONTRACT_GROUPS_PATH)
+    log.info("universe loaded", markets=len(universe_df), groups=len(contract_groups_df))
     assert_covers(
         [GDELT_DIR, FEEDS_DIR],
         (cid for cid in universe_df["company_id"] if cid),
@@ -103,10 +106,10 @@ def main() -> None:
     if not article_emb_df.empty:
         pq.write_table(pa.Table.from_pandas(article_emb_df), ARTICLE_EMB_PATH)
 
-    # --- Markets (question + description) ---
-    market_emb_df = embedder.embed_markets(universe_df)
-    del universe_df
-    pq.write_table(pa.Table.from_pandas(market_emb_df), MARKET_EMB_PATH)
+    # --- Contract groups (group-level text — see BGEEmbedder._build_group_text) ---
+    group_emb_df = embedder.embed_groups(contract_groups_df, universe_df)
+    del universe_df, contract_groups_df
+    pq.write_table(pa.Table.from_pandas(group_emb_df), GROUP_EMB_PATH)
 
     # --- FAISS index ---
     if not article_emb_df.empty:
@@ -131,7 +134,7 @@ def main() -> None:
     (EMBEDDINGS_DIR / "_SUCCESS").touch()
 
     print(f"Articles embedded: {len(article_emb_df)}")
-    print(f"Markets embedded:  {len(market_emb_df)}")
+    print(f"Groups embedded:   {len(group_emb_df)}")
     if not article_emb_df.empty:
         print(f"Embedding matrix shape: {vecs.shape}")
     print(f"FAISS index total vectors: {index.ntotal}")

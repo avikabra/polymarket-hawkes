@@ -25,13 +25,15 @@ data/news/gdelt_gkg/_SUCCESS: data/polymarket/universe.parquet
 data/news/feeds/_SUCCESS: data/polymarket/universe.parquet
 	$(PYTHON) scripts/05_pull_category_feeds.py
 
-# Body text — critical path; blocks analysis embeddings
-data/news/bodies/_SUCCESS: data/news/gdelt_gkg/_SUCCESS data/news/feeds/_SUCCESS
-	$(PYTHON) scripts/06_fetch_article_bodies.py
+# Body text — verified-articles-only (see scripts/09), critical path for analysis embeddings
+data/news/bodies/_SUCCESS: data/matches/_VERIFIED_SUCCESS
+	$(PYTHON) scripts/06_fetch_article_bodies.py --verified-only
 
 # ── Matching pipeline (BGE-large only) ────────────────────────────────────────
+# Matching embeddings use title+lede only (no body text) — do NOT depend on body-fetch,
+# which itself now depends on verification (09) having run first (see scripts/06 docstring).
 
-data/news/matching_embeddings/_SUCCESS: data/news/bodies/_SUCCESS
+data/news/matching_embeddings/_SUCCESS: data/news/gdelt_gkg/_SUCCESS data/news/feeds/_SUCCESS
 	$(PYTHON) scripts/07_embed_for_matching.py
 
 data/matches/_CANDIDATES_SUCCESS: data/news/matching_embeddings/_SUCCESS

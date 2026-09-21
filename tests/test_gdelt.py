@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from src.news.gdelt.bigquery import _HARD_CEILING_USD, _check_budget
+from src.news.gdelt.bigquery import _HARD_CEILING_USD, _UNPARTITIONED_TABLE_RE, _check_budget
 from src.schemas import Article
 
 
@@ -118,3 +118,95 @@ def test_check_budget_unpartitioned_table_reference_raises():
 def test_check_budget_partitioned_table_not_falsely_flagged():
     mock_client = _mock_client_with_cost(0.01)
     _check_budget(mock_client, _SAFE_SQL, budget_usd=5.0)  # must not raise
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# A1: SQL-level stratified cap + content-farm exclude
+# ─────────────────────────────────────────────────────────────────────────────
+
+_ENTITY_FILTER = {
+    "Apple": ["Apple"],
+    "Microsoft": ["Microsoft"],
+}
+
+
+def _capture_query_sql(client_fixture, **kwargs) -> str:
+    """Run pull_gkg_for_window against a fresh mock bq client, return the captured SQL."""
+    mock_bq_client = MagicMock()
+    # Cheap dry-run cost so _check_budget doesn't raise (comparing a bare
+    # MagicMock to a float is always truthy and would falsely trip the ceiling).
+    mock_bq_client.query.return_value.total_bytes_processed = 0.01 / 6.25 * 1e12
+    mock_bq_client.query.return_value.to_dataframe.return_value = pd.DataFrame()
+    client_fixture._bq = mock_bq_client
+    # Bypass the real on-disk cache — never touch data/.cache/gdelt in a unit test.
+    client_fixture._cache = MagicMock()
+    client_fixture._cache.get.return_value = None
+    client_fixture.pull_gkg_for_window("20240101", "20240131", _ENTITY_FILTER, **kwargs)
+    # First .query() call is the dry-run budget check; second is the real query.
+    calls = mock_bq_client.query.call_args_list
+    assert len(calls) >= 2
+    return calls[-1].args[0]
+
+
+def test_pull_gkg_sql_contains_qualify_and_row_number(client):
+    sql = _capture_query_sql(client)
+    assert "QUALIFY" in sql
+    assert "ROW_NUMBER" in sql
+
+
+def test_pull_gkg_sql_contains_all_blocklist_domains(client):
+    sql = _capture_query_sql(client)
+    for domain in ["themarketsdaily", "dailypolitical", "tickerreport", "wkrb13", "modernreaders"]:
+        assert domain in sql
+
+
+def test_pull_gkg_sql_contains_is_not_null(client):
+    sql = _capture_query_sql(client)
+    assert "IS NOT NULL" in sql
+
+
+def test_pull_gkg_sql_does_not_reference_unpartitioned_table(client):
+    sql = _capture_query_sql(client)
+    assert not _UNPARTITIONED_TABLE_RE.search(sql)
+
+
+def test_pull_gkg_sql_references_partitioned_table(client):
+    sql = _capture_query_sql(client)
+    assert "gkg_partitioned" in sql
+
+
+def test_pull_gkg_sql_caps_per_company_month_default(client):
+    sql = _capture_query_sql(client)
+    assert "<= 300" in sql  # _DEFAULT_CAP_PER_COMPANY_MONTH
+
+
+def test_pull_gkg_sql_custom_cap(client):
+    sql = _capture_query_sql(client, cap_per_company_month=50)
+    assert "<= 50" in sql
+
+
+def test_build_matched_company_case_sql_maps_canon_names():
+    from src.news.gdelt.bigquery import _build_matched_company_case_sql
+    sql = _build_matched_company_case_sql(_ENTITY_FILTER)
+    assert "'''Apple'''" in sql
+    assert "'''Microsoft'''" in sql
+    assert "CASE" in sql
+    assert "ELSE NULL" in sql
+
+
+def test_build_matched_company_case_sql_empty_filter_raises():
+    from src.news.gdelt.bigquery import _build_matched_company_case_sql
+    with pytest.raises(ValueError):
+        _build_matched_company_case_sql({})
+
+
+def test_to_articles_includes_matched_company():
+    df = _fixture_df()
+    df["matched_company"] = ["Kansas City Chiefs", "Los Angeles Lakers", "NFL"]
+    with patch("src.news.gdelt.bigquery.bigquery") as mock_bq:
+        mock_bq.Client.return_value = MagicMock()
+        from src.news.gdelt.bigquery import GDELTClient
+        c = GDELTClient(project_id="test-project")
+    articles = c.to_articles(df)
+    metas = [json.loads(a.raw_metadata_json) for a in articles]
+    assert [m["matched_company"] for m in metas] == ["Kansas City Chiefs", "Los Angeles Lakers", "NFL"]

@@ -66,6 +66,9 @@ def main() -> None:
     ap.add_argument("--budget-usd", type=float, default=5.0,
                     help="abort the BigQuery pull if its dry-run cost exceeds this "
                          "(soft; a non-overridable hard ceiling also applies, see bigquery.py)")
+    ap.add_argument("--cap-per-company-month", type=int, default=300,
+                    help="max rows per (company, month) via SQL QUALIFY ROW_NUMBER() — "
+                         "bounds mega-cap volume without a pandas-side row-count cap")
     args = ap.parse_args()
 
     load_dotenv()
@@ -92,12 +95,16 @@ def main() -> None:
         print("ERROR: no COMPANY_DICT entries match universe.parquet's company_ids.")
         sys.exit(1)
     company_ids = {canon.lower().replace(" ", "_") for canon in company_dict}
-    entity_filter = sorted({
-        alias
+    # canonical company -> GDELT-safe aliases (bare tickers / ambiguous common
+    # words already dropped by gdelt_entity_aliases) — keyed per-company so
+    # bigquery.py can tag each matched row with its matched_company.
+    entity_filter = {
+        canon: gdelt_entity_aliases(canon, aliases)
         for canon, aliases in company_dict.items()
-        for alias in gdelt_entity_aliases(canon, aliases)
-    })
-    log.info("built entity filter", extra={"n_companies": len(company_dict), "n_aliases": len(entity_filter)})
+    }
+    entity_filter = {canon: aliases for canon, aliases in entity_filter.items() if aliases}
+    n_aliases = sum(len(v) for v in entity_filter.values())
+    log.info("built entity filter", extra={"n_companies": len(entity_filter), "n_aliases": n_aliases})
 
     # focal.yaml uses ISO dates; GDELTClient expects YYYYMMDD
     start_date_iso = focal["discovery_start_date"]
@@ -113,7 +120,11 @@ def main() -> None:
         sys.exit(1)
 
     try:
-        df = client.pull_gkg_for_window(start_date, end_date, entity_filter, budget_usd=args.budget_usd)
+        df = client.pull_gkg_for_window(
+            start_date, end_date, entity_filter,
+            budget_usd=args.budget_usd,
+            cap_per_company_month=args.cap_per_company_month,
+        )
     except Exception as exc:
         print(f"ERROR: BigQuery query failed: {exc}")
         sys.exit(1)

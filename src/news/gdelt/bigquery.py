@@ -39,6 +39,32 @@ _USD_PER_TIB = 6.25
 # of `gdelt-bq.gdeltv2.gkg_partitioned` (no word boundary before the "_").
 _UNPARTITIONED_TABLE_RE = re.compile(r"\bgdelt-bq\.gdeltv2\.gkg\b")
 
+# MarketBeat syndication network — auto-generated filler ("shares crossed above
+# their 200-day moving average"), scheduled and uncorrelated with genuine
+# information arrival. 15% of matched GKG volume per reports/gdelt_coverage_audit.md §3.
+_CONTENT_FARM_DOMAINS = (
+    "themarketsdaily", "dailypolitical", "tickerreport", "wkrb13", "modernreaders",
+)
+
+_DEFAULT_CAP_PER_COMPANY_MONTH = 300
+
+
+def _build_matched_company_case_sql(entity_filter: dict[str, list[str]]) -> str:
+    """Build a `CASE WHEN REGEXP_CONTAINS(persons_orgs, pat) THEN '<canon>' ... END`
+    expression over `entity_filter` (canonical company -> GDELT-safe alias list,
+    already filtered by the caller via company_filter.gdelt_entity_aliases — this
+    function does no alias filtering of its own, only SQL composition).
+    """
+    lines = []
+    for canon, aliases in entity_filter.items():
+        if not aliases:
+            continue
+        alt = "|".join(re.escape(a) for a in sorted(aliases, key=len, reverse=True))
+        lines.append(f"    WHEN REGEXP_CONTAINS(persons_orgs, r'''(?i)({alt})''') THEN '''{canon}'''")
+    if not lines:
+        raise ValueError("entity_filter has no companies with GDELT-safe aliases")
+    return "CASE\n" + "\n".join(lines) + "\n    ELSE NULL\n  END"
+
 
 def _check_budget(bq_client: "bigquery.Client", sql: str, budget_usd: float) -> None:
     """Raise if `sql` is unsafe to run: wrong table, or over budget/ceiling.
@@ -77,14 +103,24 @@ class GDELTClient:
         self,
         start_date: str,
         end_date: str,
-        entity_filter: list[str],
+        entity_filter: dict[str, list[str]],
         budget_usd: float = _DEFAULT_BUDGET_USD,
+        cap_per_company_month: int = _DEFAULT_CAP_PER_COMPANY_MONTH,
     ) -> pd.DataFrame:
-        """Query GDELT GKG between start_date and end_date (YYYYMMDD inclusive)."""
+        """Query GDELT GKG between start_date and end_date (YYYYMMDD inclusive).
+
+        entity_filter: canonical company name -> GDELT-safe alias list (see
+        company_filter.gdelt_entity_aliases; the caller has already dropped bare
+        tickers and ambiguous common-word aliases).
+
+        Applies a per-(company, month) stratified row cap in SQL via
+        QUALIFY ROW_NUMBER() so a handful of mega-caps can't dominate the pull,
+        and excludes known content-farm domains — see reports/gdelt_coverage_audit.md.
+        """
         filter_hash = hashlib.sha256(
-            "|".join(sorted(entity_filter)).encode()
+            json.dumps(entity_filter, sort_keys=True).encode()
         ).hexdigest()[:16]
-        cache_key = f"gdelt:gkg:{start_date}:{end_date}:{filter_hash}"
+        cache_key = f"gdelt:gkg:{start_date}:{end_date}:{filter_hash}:{cap_per_company_month}"
 
         cached = self._cache.get(cache_key)
         if cached is not None:
@@ -96,18 +132,32 @@ class GDELTClient:
         start_iso = datetime.strptime(start_date, "%Y%m%d").strftime("%Y-%m-%d")
         end_iso = (datetime.strptime(end_date, "%Y%m%d") + timedelta(days=1)).strftime("%Y-%m-%d")
 
-        # Triple-quoted regex literal: entity names can contain apostrophes
-        # (e.g. "McDonald's"), which terminate a single-quoted SQL string.
-        pattern = "|".join(re.escape(e) for e in entity_filter)
+        # matched_company is a CASE expression, not a plain column, so it can't
+        # be referenced by name in the WHERE of the same SELECT that defines it
+        # (BigQuery evaluates WHERE before SELECT aliases) — it's repeated in
+        # both places. Without the "IS NOT NULL" repeat here, unmatched rows
+        # (matched_company NULL) would still pass through to QUALIFY below and
+        # get capped as their own NULL partition — letting up to
+        # cap_per_company_month * n_months irrelevant rows through per pull.
+        case_sql = _build_matched_company_case_sql(entity_filter)
+        domain_block = "|".join(_CONTENT_FARM_DOMAINS)
         sql = f"""
-SELECT {_COLS}
-FROM `{_TABLE}`
-WHERE _PARTITIONTIME >= '{start_iso}'
-  AND _PARTITIONTIME < '{end_iso}'
-  AND REGEXP_CONTAINS(
-      COALESCE(V2Persons, '') || ';' || COALESCE(V2Organizations, ''),
-      r'''(?i)({pattern})'''
-  )
+WITH scored AS (
+  SELECT {_COLS}, _PARTITIONTIME,
+    COALESCE(V2Persons, '') || ';' || COALESCE(V2Organizations, '') AS persons_orgs
+  FROM `{_TABLE}`
+  WHERE _PARTITIONTIME >= '{start_iso}'
+    AND _PARTITIONTIME < '{end_iso}'
+)
+SELECT {_COLS},
+  {case_sql} AS matched_company
+FROM scored
+WHERE NOT REGEXP_CONTAINS(SourceCommonName, r'(?i)({domain_block})')
+  AND {case_sql} IS NOT NULL
+QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY matched_company, FORMAT_TIMESTAMP('%Y-%m', _PARTITIONTIME)
+    ORDER BY GKGRECORDID
+) <= {cap_per_company_month}
 """
         _check_budget(self._bq, sql, budget_usd)
         self._log.info("running BigQuery query", extra={"start": start_date, "end": end_date})
@@ -146,6 +196,7 @@ WHERE _PARTITIONTIME >= '{start_iso}'
                 "v2tone": str(row.get("V2Tone") or ""),
                 "v2locations": str(row.get("V2Locations") or ""),
                 "sharing_image": str(row.get("SharingImage") or ""),
+                "matched_company": str(row.get("matched_company") or ""),
             }
 
             articles.append(Article(

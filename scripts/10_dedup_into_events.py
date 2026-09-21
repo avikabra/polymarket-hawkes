@@ -1,4 +1,4 @@
-"""Script 10: Cluster verified articles into NewsEvent records per market.
+"""Script 10: Cluster verified articles into NewsEvent records per contract group.
 
 Reads verifications from matches.db, calls src/matching/dedup.cluster_market,
 writes results to news_events table, then writes _EVENTS_SUCCESS.
@@ -48,10 +48,10 @@ def main() -> None:
     # Load verified matches
     rows = conn.execute(
         """
-        SELECT c.market_id, c.article_id, c.article_published_at, c.timestamp_precision,
+        SELECT c.group_id, c.article_id, c.article_published_at, c.timestamp_precision,
                v.directional_impact, v.news_type
         FROM verifications v
-        JOIN candidates c ON v.market_id=c.market_id AND v.article_id=c.article_id
+        JOIN candidates c ON v.group_id=c.group_id AND v.article_id=c.article_id
         WHERE v.is_match=1
         """
     ).fetchall()
@@ -64,11 +64,11 @@ def main() -> None:
     emb_map = _load_embeddings()
     log.info("loaded", verified_pairs=len(rows), embeddings=len(emb_map))
 
-    # Group by market
-    market_rows: dict[str, list[dict]] = {}
-    for market_id, article_id, pub_at, prec, di, nt in rows:
-        market_rows.setdefault(market_id, []).append({
-            "market_id": market_id,
+    # Group by contract group
+    group_rows: dict[str, list[dict]] = {}
+    for group_id, article_id, pub_at, prec, di, nt in rows:
+        group_rows.setdefault(group_id, []).append({
+            "group_id": group_id,
             "article_id": article_id,
             "article_published_at": pub_at,
             "timestamp_precision": prec,
@@ -78,13 +78,13 @@ def main() -> None:
         })
 
     total_events = 0
-    for market_id, verified in market_rows.items():
+    for group_id, verified in group_rows.items():
         events = cluster_market(verified, emb_map)
         for ev in events:
             conn.execute(
                 "INSERT OR REPLACE INTO news_events VALUES (?,?,?,?,?,?,?,?,?)",
                 (
-                    ev.event_id, ev.market_id,
+                    ev.event_id, ev.group_id,
                     ev.canonical_ts.isoformat(), ev.timestamp_precision,
                     ev.consensus_directional_impact, ev.dominant_news_type,
                     json.dumps(ev.member_article_ids), ev.member_count,
@@ -97,10 +97,10 @@ def main() -> None:
     conn.close()
 
     (MATCHES_DIR / "_EVENTS_SUCCESS").touch()
-    print(f"Markets processed: {len(market_rows)}")
+    print(f"Groups processed:  {len(group_rows)}")
     print(f"NewsEvents created: {total_events}")
-    if market_rows:
-        print(f"Mean events/market: {total_events / len(market_rows):.1f}")
+    if group_rows:
+        print(f"Mean events/group: {total_events / len(group_rows):.1f}")
 
 
 if __name__ == "__main__":

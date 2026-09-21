@@ -20,6 +20,34 @@ DEFAULT_ANALYSIS_MODEL = "intfloat/e5-large-v2"
 ANALYSIS_EMBED_DIM = 768
 
 
+def _build_group_text(row: dict, universe_lookup: dict) -> str:
+    """Matching text for one contract_groups.parquet row (a group).
+
+    corporate_event groups are singletons (n_members == 1 by construction, see
+    CLAUDE.md ground truth) — use that one member's real question + description.
+
+    Real ladders (price/market_cap/valuation/revenue) use the group's own
+    ladder_metric/strikes/price_expiry_month columns instead of concatenating all
+    member questions, which are near-duplicate strike phrasings ("GME market cap
+    above $6B" vs "...above $16B") that would swamp the embedding with repetition.
+    """
+    if row.get("contract_family") == "corporate_event":
+        member_ids = row.get("member_market_ids")
+        member_id = member_ids[0] if member_ids is not None and len(member_ids) else None
+        member = universe_lookup.get(str(member_id), {})
+        question = member.get("question") or ""
+        description = member.get("description") or ""
+        return f"{question} {description}".strip()
+
+    ticker = row.get("ticker") or "private"
+    strikes = row.get("strikes")
+    strikes_list = sorted(float(s) for s in strikes) if strikes is not None and len(strikes) else []
+    return (
+        f"{row.get('company_name') or ''} ({ticker}) {row.get('ladder_metric') or ''} "
+        f"forecast for {row.get('price_expiry_month') or ''}: strikes {strikes_list}"
+    )
+
+
 class BGEEmbedder:
     def __init__(
         self,
@@ -188,14 +216,24 @@ class BGEEmbedder:
                     pass
         return merged
 
-    def embed_markets(self, universe_df: pd.DataFrame) -> pd.DataFrame:
-        texts = (
-            universe_df["question"].fillna("") + " " + universe_df["description"].fillna("")
-        ).str.slice(0, 2048).tolist()
+    def embed_groups(
+        self, contract_groups_df: pd.DataFrame, universe_df: pd.DataFrame
+    ) -> pd.DataFrame:
+        """Embed one text per contract_groups.parquet row (group-level, not market-level).
+
+        See _build_group_text for the two text-construction branches.
+        """
+        universe_lookup = {
+            str(row["market_id"]): row for row in universe_df.to_dict("records")
+        }
+        texts = [
+            _build_group_text(row, universe_lookup)[:2048]
+            for row in contract_groups_df.to_dict("records")
+        ]
         vecs = self.embed_texts(texts)
         return pd.DataFrame([
-            {"market_id": mid, "embedding": emb.tobytes()}
-            for mid, emb in zip(universe_df["market_id"].tolist(), vecs)
+            {"group_id": gid, "embedding": emb.tobytes()}
+            for gid, emb in zip(contract_groups_df["group_id"].tolist(), vecs)
         ])
 
 
