@@ -20,7 +20,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
-import pyarrow.parquet as pq
 
 UNIVERSE_PATH = Path("data/polymarket/universe.parquet")
 TRADES_DIR = Path("data/polymarket/trades")
@@ -40,15 +39,17 @@ _THRESHOLDS = {
 
 
 def _load_article_meta() -> pd.DataFrame:
-    import pyarrow as pa
-
     parts = []
     for d in [GDELT_DIR, FEEDS_DIR]:
         if not d.exists():
             continue
         paths = list(d.rglob("*.parquet"))
         if paths:
-            parts.append(pa.concat_tables([pq.read_table(p) for p in paths]).to_pandas())
+            # pd.read_parquet (not pq.read_table) — see scripts/11_embed_for_analysis.py
+            # for why: pq.read_table on a file under data/news/feeds' Hive-style
+            # source=<name>/year=/month= directories collides its own plain-string
+            # `source` column with pyarrow's inferred dictionary-typed partition column.
+            parts.append(pd.concat([pd.read_parquet(p) for p in paths], ignore_index=True))
     if not parts:
         return pd.DataFrame()
     df = pd.concat(parts, ignore_index=True).drop_duplicates(subset=["article_id"])
