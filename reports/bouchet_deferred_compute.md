@@ -1,6 +1,32 @@
 # Bouchet-Deferred Compute — Matching Embeddings & LLM Judge
 
-*Weeks 7-9 Task A/B · drafted 2026-09-20 · status: **both stages code-complete, both blocked on the same external dependency (Bouchet HPC access, PI: Bryan Kelly, request pending)***
+*Weeks 7-9 Task A/B · drafted 2026-09-20 · status: **Script 07 (matching embeddings) COMPLETE as of
+2026-09-28 on Bouchet. LLM judge (script 09 `--openweight`) still pending a vLLM/TGI endpoint.***
+
+## Script 07 — done, 2026-09-28
+
+Ran on Bouchet (`gpu` partition, NVIDIA L40S 46GB, account `pi_btk22`, job 27786462) from
+`/nfs/roberts/project/pi_btk22/ak2876/thesis-polymarket` (see `reports/bouchet_login_howto.md` for
+the environment setup). Verified output:
+```
+Articles embedded: 546657
+Groups embedded:   628
+Embedding matrix shape: (546657, 1024)
+FAISS index total vectors: 546657
+```
+Matches the expected cardinality exactly (628 contract groups, per §2 below).
+
+**Gotcha worth remembering:** the first submission (job 27784355) silently ran *stale* code — the
+public `git clone` pulled GitHub's `main`, which was 4 commits behind local `weeks-7-9-data-review`
+(the group-keyed rewrite, commit `a213195`, had never been pushed). It completed "successfully" but
+wrote the old `market_embeddings.parquet` schema (6,928 markets) instead of `group_embeddings.parquet`
+(628 groups) — caught by the sbatch script's own row-count verification step. Fixed by pushing the
+branch and `git checkout weeks-7-9-data-review` on Bouchet. **Always confirm the remote/branch a
+cluster clone tracks matches what you think you tested locally** — a clean job exit is not proof the
+right code ran.
+
+Batch size used: 256 (the `--max-chunks`/`--batch-size` guidance below was followed — did not reuse
+the local MPS ceiling of 128).
 
 Supersedes the earlier `reports/llm_judge_deferred.md` (renamed/broadened): that file covered only
 the LLM judge. Two compute-heavy stages are now deferred to the same cluster access request, not
