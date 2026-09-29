@@ -177,14 +177,27 @@ def main() -> None:
 
             category = str(minfo.get("contract_family", ""))
             resolved_at_raw = minfo.get("resolved_at")
-            # resolved_at_raw is NaN (not None) for still-open markets in universe_df —
-            # `if resolved_at_raw` alone doesn't catch that (NaN is truthy in Python),
-            # which reached compute_market_chars as pd.NaT and crashed on .timestamp().
+            # resolved_at_raw is NaN (not None) when missing — `if resolved_at_raw`
+            # alone doesn't catch that (NaN is truthy in Python), which reached
+            # compute_market_chars as pd.NaT and crashed on .timestamp().
             resolved_at = (
                 pd.Timestamp(resolved_at_raw)
                 if resolved_at_raw and pd.notna(resolved_at_raw)
                 else None
             )
+            if resolved_at is None:
+                # DATA GAP, not a design choice — flag in any writeup that touches
+                # time_to_resolution_days or the train/val/test split. universe.parquet's
+                # resolved_at is NaT for all 6928 markets even though resolved_outcome
+                # is 100% populated (every market genuinely resolved) and end_at is in
+                # the past for all of them — script 01 (universe pull) never captured
+                # the actual settlement timestamp. Falling back to the scheduled end_at
+                # as the best available proxy for when resolution happened, rather than
+                # leaving every row's time_to_resolution_days null (which previously
+                # emptied every _CHAR_COLS dropna in purging.py, producing zero rows).
+                end_at_raw = minfo.get("end_at")
+                if end_at_raw and pd.notna(end_at_raw):
+                    resolved_at = pd.Timestamp(end_at_raw)
             if resolved_at is not None and resolved_at.tzinfo is None:
                 resolved_at = resolved_at.tz_localize("UTC")
 
