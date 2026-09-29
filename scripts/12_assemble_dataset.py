@@ -17,7 +17,6 @@ Writes: data/analysis/tuples.parquet (one row per VerifiedArticle)
 
 from __future__ import annotations
 
-import functools
 import sqlite3
 import sys
 from pathlib import Path
@@ -29,13 +28,13 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import yaml
 
+from src.analysis.ladder_reaction import compute_ladder_adjusted_reactions
 from src.analysis.market_chars import compute_market_chars
 from src.analysis.reaction_windows import compute_reaction_windows
 from src.news.normalizer import build_matching_text_corpus
-from src.utils import assert_covers, get_logger
+from src.utils import assert_covers, get_logger, load_bars
 
 DB_PATH = Path("data/matches/matches.db")
-BARS_DIR = Path("data/polymarket/bars_1min")
 UNIVERSE_PATH = Path("data/polymarket/universe.parquet")
 CONTRACT_GROUPS_PATH = Path("data/polymarket/contract_groups.parquet")
 ANALYSIS_DIR = Path("data/analysis")
@@ -51,22 +50,6 @@ def _load_config() -> dict:
         with open(cfg_path) as f:
             return yaml.safe_load(f)
     return {}
-
-
-@functools.lru_cache(maxsize=None)
-def _load_bars(market_id: str) -> pd.DataFrame:
-    """Load 1-min bars for a market from the partitioned parquet directory.
-
-    Cached: the fan-out loop in main() calls this once per (verified pair,
-    member market) row — ~40x more calls than there are unique markets, and
-    each uncached call does a full BARS_DIR.rglob directory scan. Without
-    caching this makes assembly redundantly re-scan/re-read the same market's
-    bars dozens of times over NFS.
-    """
-    found = list(BARS_DIR.rglob(f"part-{market_id}.parquet"))
-    if not found:
-        return pd.DataFrame(columns=["ts_min", "close_lo", "volume_usdc"])
-    return pd.read_parquet(found[0])
 
 
 def _load_article_meta() -> dict[str, dict]:
@@ -201,7 +184,7 @@ def main() -> None:
             if resolved_at is not None and resolved_at.tzinfo is None:
                 resolved_at = resolved_at.tz_localize("UTC")
 
-            bars_df = _load_bars(market_id)
+            bars_df = load_bars(market_id)
 
             chars = compute_market_chars(
                 article_ts=article_ts,
@@ -232,11 +215,23 @@ def main() -> None:
                 "embedding_source": embedding_source,
                 "canonical_ts": int(article_ts.timestamp()) if article_ts is not None else None,
                 "market_resolved_at": resolved_at.isoformat() if resolved_at is not None else None,
+                "end_at": (
+                    pd.Timestamp(minfo["end_at"]).isoformat()
+                    if minfo.get("end_at") and pd.notna(minfo.get("end_at"))
+                    else None
+                ),
+                "strike_price": minfo.get("strike_price"),
+                "strike_direction": minfo.get("strike_direction"),
                 **chars,
                 **windows,
             })
 
     out_df = pd.DataFrame(output_rows)
+    # Joint monotone strike-ladder correction (novel_math_design.md Thread 2) —
+    # adds y_logit_{Δ}h_ladder / ladder_n_members_used_{Δ}h columns. Separate
+    # stage from reaction_windows/market_chars above: purely additive, does not
+    # change any existing column.
+    out_df = compute_ladder_adjusted_reactions(out_df, window_hours)
     out_path = ANALYSIS_DIR / "tuples.parquet"
     pq.write_table(pa.Table.from_pandas(out_df), out_path)
     log.info("tuples written", rows=len(out_df), path=str(out_path))

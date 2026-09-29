@@ -1,3 +1,4 @@
+from src.utils.bars_io import load_bars
 from src.utils.cache import DiskCache
 from src.utils.duckdb_io import get_connection, query_to_df, register_parquet_views
 from src.utils.logging import get_logger
@@ -14,4 +15,5 @@ __all__ = [
     "assert_covers",
     "read_scope",
     "write_scope",
+    "load_bars",
 ]
