@@ -10,6 +10,9 @@ Writes:
   data/analysis/shock_embeddings.parquet  (article_id, market_id, shock_embedding, raw_embedding,
                                            lambda_chosen, category, split, canonical_ts,
                                            parent_event_id, y_logit_1h, y_logit_6h, y_logit_24h,
+                                           y_logit_1h_ladder, y_logit_6h_ladder, y_logit_24h_ladder,
+                                           ladder_n_members_used_1h, ladder_n_members_used_6h,
+                                           ladder_n_members_used_24h,
                                            valid_1h, valid_6h, valid_24h,
                                            news_type, directional_impact)
 """
@@ -104,6 +107,8 @@ def main() -> None:
     # Columns from tuples_df to join in
     tuples_label_cols = [
         "article_id", "y_logit_1h", "y_logit_6h", "y_logit_24h",
+        "y_logit_1h_ladder", "y_logit_6h_ladder", "y_logit_24h_ladder",
+        "ladder_n_members_used_1h", "ladder_n_members_used_6h", "ladder_n_members_used_24h",
         "valid_1h", "valid_6h", "valid_24h",
         "news_type", "directional_impact", "canonical_ts",
     ]

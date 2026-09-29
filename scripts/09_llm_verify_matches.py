@@ -8,6 +8,9 @@ not invoked here.
 --openweight uses an OpenAI-compatible open-weight endpoint (see
 src/matching/openweight_verifier.py) for the Bouchet HPC deferred-judge stage — code-
 complete, mock-tested only, not invoked here (see reports/llm_judge_deferred.md).
+--joint uses the liquidity-validated joint score (novel_math_design.md Thread 1:
+embedding_score + abnormal-volume z-score in log-odds space, src/matching/joint_verifier.py)
+— runs alongside (not instead of) the rule-based pass; requires data/polymarket/bars_1min.
 
 Writes results incrementally to the verifications table (resume-safe),
 then writes _VERIFIED_SUCCESS.
@@ -197,6 +200,85 @@ async def _run_llm(conn: sqlite3.Connection, todo: list[tuple], article_meta: di
     return verified, skipped
 
 
+def _run_joint(
+    conn: sqlite3.Connection,
+    verified_pairs: set[tuple[str, str]],
+    group_members: dict[str, list[str]],
+    resolved_at_map: dict[str, pd.Timestamp | None],
+) -> tuple[int, int]:
+    """Verify all pairs with the joint (embedding + liquidity) score
+    (novel_math_design.md Thread 1). Returns (verified, skipped).
+
+    A group with no member markets in contract_groups.parquet is skipped (counted
+    in `skipped`) — that's a data-integrity gap, distinct from a group whose
+    members simply have no real bars data, which compute_liquidity_response
+    already handles gracefully (empty bars -> volume_z=0.0, price_impact=None;
+    see src/utils/bars_io.py's load_bars empty-frame fallback and
+    liquidity_signal.py's `if not df.empty` filtering), so that case is NOT
+    skipped here — it still gets verified with liquidity_z=0.
+    """
+    from src.matching.joint_scoring import (
+        group_resolved_at,
+        load_group_member_bars,
+        parse_article_ts,
+        score_pair_joint,
+    )
+
+    candidates = conn.execute(
+        "SELECT group_id, article_id, embedding_score, article_published_at, timestamp_precision "
+        "FROM candidates"
+    ).fetchall()
+    todo = [row for row in candidates if (row[0], row[1]) not in verified_pairs]
+    log.info("joint verification candidates", total=len(candidates), remaining=len(todo))
+
+    verified = 0
+    skipped = 0
+    batch_size = 200
+
+    for i in range(0, len(todo), batch_size):
+        batch = todo[i : i + batch_size]
+        rows = []
+        now_ts = datetime.now(timezone.utc).isoformat()
+        for group_id, article_id, embedding_score, pub_at, prec in batch:
+            group_id = str(group_id)
+            member_ids = group_members.get(group_id, [])
+            if not member_ids:
+                skipped += 1
+                continue
+
+            member_bars = load_group_member_bars(member_ids)
+            article_ts = parse_article_ts(pub_at)
+            resolved_at = group_resolved_at(member_ids, resolved_at_map)
+
+            result, _liquidity = score_pair_joint(
+                embedding_score=embedding_score,
+                article_ts=article_ts,
+                timestamp_precision=str(prec),
+                member_bars=member_bars,
+                market_resolved_at=resolved_at,
+            )
+            rows.append((
+                group_id, article_id,
+                int(result.is_match), result.match_strength,
+                result.directional_impact, result.magnitude,
+                result.news_type, result.reasoning,
+                _review_status(result.is_match, result.match_strength), now_ts,
+            ))
+            verified += 1
+
+        if rows:
+            conn.executemany(
+                "INSERT OR IGNORE INTO verifications "
+                "(group_id, article_id, is_match, match_strength, directional_impact, "
+                "magnitude, news_type, reasoning, review_status, verified_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                rows,
+            )
+            conn.commit()
+        log.info("joint verification progress", done=min(i + batch_size, len(todo)), total=len(todo))
+
+    return verified, skipped
+
+
 async def _run_openweight(
     conn: sqlite3.Connection, todo: list[tuple], article_meta: dict, group_texts: dict,
     only_low_confidence: bool = False,
@@ -301,6 +383,11 @@ async def main() -> None:
         help="With --openweight, re-verify only review_status='low_confidence' rows "
              "(cheaper — targets exactly what the rule-based pass couldn't resolve).",
     )
+    parser.add_argument(
+        "--joint", action="store_true",
+        help="Use the liquidity-validated joint score (novel_math_design.md Thread 1) "
+             "instead of the rule-based verifier. Requires data/polymarket/bars_1min.",
+    )
     args = parser.parse_args()
 
     if not DB_PATH.exists():
@@ -334,7 +421,14 @@ async def main() -> None:
     todo = [(g, a, s) for g, a, s in candidates if (g, a) not in verified_pairs]
     log.info("candidates to verify", total=len(candidates), remaining=len(todo))
 
-    if args.openweight:
+    if args.joint:
+        log.info("using joint (embedding + liquidity) verifier")
+        from src.matching.joint_scoring import group_member_map, market_resolved_at_map
+
+        group_members = group_member_map(contract_groups_df)
+        resolved_at_map = market_resolved_at_map(universe_df)
+        verified, skipped = _run_joint(conn, verified_pairs, group_members, resolved_at_map)
+    elif args.openweight:
         log.info("using open-weight verifier (Bouchet HPC)")
         verified, skipped = await _run_openweight(
             conn, todo, article_meta, group_texts, only_low_confidence=args.only_low_confidence,
