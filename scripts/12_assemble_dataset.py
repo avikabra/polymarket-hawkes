@@ -17,6 +17,7 @@ Writes: data/analysis/tuples.parquet (one row per VerifiedArticle)
 
 from __future__ import annotations
 
+import functools
 import sqlite3
 import sys
 from pathlib import Path
@@ -52,8 +53,16 @@ def _load_config() -> dict:
     return {}
 
 
+@functools.lru_cache(maxsize=None)
 def _load_bars(market_id: str) -> pd.DataFrame:
-    """Load 1-min bars for a market from the partitioned parquet directory."""
+    """Load 1-min bars for a market from the partitioned parquet directory.
+
+    Cached: the fan-out loop in main() calls this once per (verified pair,
+    member market) row — ~40x more calls than there are unique markets, and
+    each uncached call does a full BARS_DIR.rglob directory scan. Without
+    caching this makes assembly redundantly re-scan/re-read the same market's
+    bars dozens of times over NFS.
+    """
     found = list(BARS_DIR.rglob(f"part-{market_id}.parquet"))
     if not found:
         return pd.DataFrame(columns=["ts_min", "close_lo", "volume_usdc"])
