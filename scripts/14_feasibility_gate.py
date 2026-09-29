@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pandas as pd
 
 UNIVERSE_PATH = Path("data/polymarket/universe.parquet")
+CONTRACT_GROUPS_PATH = Path("data/polymarket/contract_groups.parquet")
 TRADES_DIR = Path("data/polymarket/trades")
 DB_PATH = Path("data/matches/matches.db")
 GDELT_DIR = Path("data/news/gdelt_gkg")
@@ -70,14 +71,31 @@ def _trade_counts_per_market() -> dict[str, int]:
 
 
 def _verified_per_market() -> dict[str, int]:
-    if not DB_PATH.exists():
+    """Verified article counts, fanned out from groups to member markets.
+
+    matches.db is group-keyed (schema v2, see scripts 08/09/10) — verifications
+    has no market_id column. A verified (group, article) match applies to the
+    whole group, so — matching the same group->market fan-out scripts 08/12 use —
+    each member market of a matched group inherits that group's verified count.
+    """
+    if not DB_PATH.exists() or not CONTRACT_GROUPS_PATH.exists():
         return {}
     conn = sqlite3.connect(DB_PATH)
     rows = conn.execute(
-        "SELECT market_id, COUNT(*) FROM verifications WHERE is_match=1 GROUP BY market_id"
+        "SELECT group_id, COUNT(*) FROM verifications WHERE is_match=1 GROUP BY group_id"
     ).fetchall()
     conn.close()
-    return {str(m): int(c) for m, c in rows}
+    group_counts = {str(g): int(c) for g, c in rows}
+
+    contract_groups_df = pd.read_parquet(CONTRACT_GROUPS_PATH)
+    market_counts: dict[str, int] = {}
+    for _, row in contract_groups_df.iterrows():
+        count = group_counts.get(str(row["group_id"]), 0)
+        if count == 0:
+            continue
+        for market_id in row["member_market_ids"]:
+            market_counts[str(market_id)] = market_counts.get(str(market_id), 0) + count
+    return market_counts
 
 
 def main() -> int:
