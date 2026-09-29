@@ -177,7 +177,14 @@ def main() -> None:
 
             category = str(minfo.get("contract_family", ""))
             resolved_at_raw = minfo.get("resolved_at")
-            resolved_at = pd.Timestamp(resolved_at_raw) if resolved_at_raw else None
+            # resolved_at_raw is NaN (not None) for still-open markets in universe_df —
+            # `if resolved_at_raw` alone doesn't catch that (NaN is truthy in Python),
+            # which reached compute_market_chars as pd.NaT and crashed on .timestamp().
+            resolved_at = (
+                pd.Timestamp(resolved_at_raw)
+                if resolved_at_raw and pd.notna(resolved_at_raw)
+                else None
+            )
             if resolved_at is not None and resolved_at.tzinfo is None:
                 resolved_at = resolved_at.tz_localize("UTC")
 
