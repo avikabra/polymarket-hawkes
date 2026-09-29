@@ -70,16 +70,23 @@ audit: data/analysis/_FOCAL_SUCCESS
 
 # ── Week 4-6 targets ─────────────────────────────────────────────────────────
 
+# Categories are contract_family values (see scripts/16's _CATEGORIES) — corrected
+# 2026-09-29 from the pre-pivot sports/politics/geopolitics taxonomy, which predates
+# the Weeks 7-9 company-contract pivot and no longer matches this column's values.
 train: data/analysis/_FOCAL_SUCCESS
 	$(PYTHON) scripts/15_build_sequence_dataset.py
 	$(PYTHON) scripts/16_train_linear_baseline.py --category all --embedding shock
 	$(PYTHON) scripts/16_train_linear_baseline.py --category all --embedding raw
-	$(PYTHON) scripts/16_train_linear_baseline.py --category sports --embedding shock
-	$(PYTHON) scripts/16_train_linear_baseline.py --category sports --embedding raw
-	$(PYTHON) scripts/16_train_linear_baseline.py --category politics --embedding shock
-	$(PYTHON) scripts/16_train_linear_baseline.py --category politics --embedding raw
-	$(PYTHON) scripts/16_train_linear_baseline.py --category geopolitics --embedding shock
-	$(PYTHON) scripts/16_train_linear_baseline.py --category geopolitics --embedding raw
+	$(PYTHON) scripts/16_train_linear_baseline.py --category corporate_event --embedding shock
+	$(PYTHON) scripts/16_train_linear_baseline.py --category corporate_event --embedding raw
+	$(PYTHON) scripts/16_train_linear_baseline.py --category price_ladder --embedding shock
+	$(PYTHON) scripts/16_train_linear_baseline.py --category price_ladder --embedding raw
+	$(PYTHON) scripts/16_train_linear_baseline.py --category revenue_ladder --embedding shock
+	$(PYTHON) scripts/16_train_linear_baseline.py --category revenue_ladder --embedding raw
+	$(PYTHON) scripts/16_train_linear_baseline.py --category valuation_ladder --embedding shock
+	$(PYTHON) scripts/16_train_linear_baseline.py --category valuation_ladder --embedding raw
+	$(PYTHON) scripts/16_train_linear_baseline.py --category market_cap_ladder --embedding shock
+	$(PYTHON) scripts/16_train_linear_baseline.py --category market_cap_ladder --embedding raw
 	@echo "Linear baseline complete. Run scripts 17-19 manually on GPU (Colab)."
 	touch models/_TRAIN_LINEAR_SUCCESS
 

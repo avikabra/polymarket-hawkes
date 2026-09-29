@@ -29,7 +29,13 @@ CHECKPOINTS_DIR = Path("models/checkpoints")
 RESULTS_PATH = Path("results/metrics_all.parquet")
 LINEAR_TEST_PREDS_PATH = Path("results/linear_test_predictions.parquet")
 
-SPORTS_CATS = {"nfl", "nba"}
+# Real contract_family values (see scripts/14_feasibility_gate.py's output) — this
+# replaces the pre-pivot sports/politics/geopolitics taxonomy, which predates the
+# Weeks 7-9 company-contract pivot and no longer matches any value in this column.
+_CATEGORIES = [
+    "corporate_event", "price_ladder", "revenue_ladder",
+    "valuation_ladder", "market_cap_ladder", "all",
+]
 
 log = get_logger(__name__)
 
@@ -38,7 +44,7 @@ def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Train linear ridge baseline.")
     p.add_argument(
         "--category",
-        choices=["sports", "politics", "geopolitics", "all"],
+        choices=_CATEGORIES,
         default="all",
     )
     p.add_argument(
@@ -73,11 +79,9 @@ def _valid_col_for_target(target: str) -> str:
 
 
 def _filter_category(df: pd.DataFrame, category: str) -> pd.DataFrame:
-    if category == "sports":
-        return df[df["category"].isin(SPORTS_CATS)].copy()
-    elif category in ("politics", "geopolitics"):
-        return df[df["category"] == category].copy()
-    return df.copy()
+    if category == "all":
+        return df.copy()
+    return df[df["category"] == category].copy()
 
 
 def _get_split(df: pd.DataFrame, split: str, category: str, emb_col: str, target_col: str):
@@ -130,7 +134,15 @@ def main() -> None:
     print(f"Test R²_OOS:    {test_r2:.6f}")
     print(f"Test Dir Acc:   {test_dir_acc:.4f}")
 
-    ckpt_name = f"linear_{args.category}_{args.embedding}.pkl"
+    # Target suffix only for a non-default target, so the common y_logit_24h case
+    # keeps the plain filename scripts 20's checkpoint parser already recognizes.
+    # A _ladder (or 1h/6h) target gets a suffixed name instead of silently
+    # overwriting the same file — script 20 doesn't yet know how to evaluate a
+    # non-default target correctly anyway (hardcoded y_logit_6h; separate, deeper
+    # issue — see reports/novel_math_design.md follow-ups), so having it skip an
+    # unrecognized filename is the safe behavior for now, not a regression.
+    target_suffix = "" if args.target == "y_logit_24h" else f"_{args.target}"
+    ckpt_name = f"linear_{args.category}_{args.embedding}{target_suffix}.pkl"
     ckpt_path = CHECKPOINTS_DIR / ckpt_name
     CHECKPOINTS_DIR.mkdir(parents=True, exist_ok=True)
     model.save(ckpt_path)
