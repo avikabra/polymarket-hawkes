@@ -211,6 +211,7 @@ def main() -> None:
                 "news_type": str(news_type),
                 "embedding_source": embedding_source,
                 "canonical_ts": int(article_ts.timestamp()) if article_ts is not None else None,
+                "market_resolved_at": resolved_at.isoformat() if resolved_at is not None else None,
                 **chars,
                 **windows,
             })
