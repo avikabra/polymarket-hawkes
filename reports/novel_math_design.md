@@ -1,5 +1,37 @@
 # Novel Math Design — Thread 1 (Liquidity-Validated Matching) & Thread 2 (Ladder Reaction Model)
 
+## Real results, 2026-09-29 (both threads implemented, wired in, run at full scale on Bouchet)
+
+**Thread 1 acceptance result — POSITIVE, strong.** `scripts/09b_matching_ablation.py`, full
+corpus (27,132 verified pairs, 16,458 with a real achievable 24h window):
+```
+Spearman(embedding-only score, |y_logit_24h|): rho=0.2493  p=1.4e-231
+Spearman(joint score,          |y_logit_24h|): rho=0.5124  p≈0
+```
+The joint (liquidity-validated) score correlates **more than double as strongly** with the
+realized market reaction as embedding similarity alone — a large, highly significant gap at
+real scale, not a marginal or noise-level result. This is the acceptance evidence the design
+doc's Q3 required; report it as-is in the thesis (do not re-tune weights to inflate it further
+without re-validating out of sample).
+
+**Thread 2 real impact — substantial, category-differentiated, behaves exactly as designed.**
+Real cohort-level isotonic correction on `tuples.parquet` (35,997 valid-24h rows):
+
+| Category | Mean \|correction\| (log-odds) | Mean real cohort size |
+|---|---|---|
+| `corporate_event` | 0.000 (exact) | 1.0 (singleton, as designed) |
+| `price_ladder` | 0.562 | 160.5 |
+| `revenue_ladder` | 0.610 | 59.5 |
+| `valuation_ladder` | 0.287 | 337.9 |
+
+58.7% of valid rows (21,115/35,997) were materially changed by the correction. `corporate_event`
+landing at exactly zero correction with cohort size exactly 1.0 confirms the singleton-passthrough
+logic is working correctly on real data, not just in synthetic tests.
+
+**Feasibility gate is unaffected by either thread** (both are purely additive columns) — still
+`corporate_event` PASS, other four FAIL for the same real, honest reasons documented in
+`reports/bouchet_overnight_run_status.md` §3c (now recalibrated, see the commit history).
+
 *Adversarially critiqued 2026-09-29 (one full revision round — five real issues found and
 fixed, see below). Implementation authorized by Avi 2026-09-29 without a further review
 pass — "write up the plan and implement, don't wait for me." Verified data facts below are
