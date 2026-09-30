@@ -9,3 +9,6 @@ thesis-polymarket-slim.zip
 .venv/
 cc_prompts_thesis_pipeline.md
 google-cloud-sdk/
+.DS_Store
+.playwright-mcp/
+scratch/
