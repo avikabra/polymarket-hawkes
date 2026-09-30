@@ -239,7 +239,14 @@ class GammaClient:
             tags=tags,
             created_at=_parse_dt(raw.get("startDate")) or datetime.now(tz=timezone.utc),
             end_at=_parse_dt(raw.get("endDate")) or datetime.now(tz=timezone.utc),
-            resolved_at=_parse_dt(raw.get("resolutionDate") or raw.get("resolvedDate")),
+            # "resolutionDate"/"resolvedDate" never appear in the real Gamma API
+            # response (verified directly against gamma-api.polymarket.com on
+            # 2026-09-29 across a 10-market sample of closed markets — both were
+            # always None). "closedTime" is the real field: populated on every
+            # closed market observed, set when the market actually closed/settled,
+            # not the scheduled "endDate". See docs.polymarket.com/market-data/
+            # market-details and reports/novel_math_design.md item 2.
+            resolved_at=_parse_dt(raw.get("closedTime")),
             yes_token_id=yes_token_id,
             no_token_id=no_token_id,
             resolved_outcome=resolved_outcome,
