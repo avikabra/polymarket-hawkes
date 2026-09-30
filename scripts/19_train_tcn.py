@@ -116,10 +116,10 @@ def main() -> None:
 
     hparams = _load_best_hparams(args.category)
     if hparams is None:
-        log.info("tcn_train", msg="No hparam search results found; using defaults.")
+        log.info("tcn_train", detail="No hparam search results found; using defaults.")
         hparams = {"K": 10, "channels": 256, "num_blocks": 3, "dropout": 0.1}
     else:
-        log.info("tcn_train", msg=f"Loaded hparams from search: {hparams}")
+        log.info("tcn_train", detail=f"Loaded hparams from search: {hparams}")
 
     K = int(hparams.get("K", arch_cfg.get("window_size", 10)))
     channels = int(hparams.get("channels", arch_cfg.get("channels", 256)))
@@ -181,7 +181,7 @@ def main() -> None:
     if args.resume and ckpt_path.exists():
         ckpt = torch.load(str(ckpt_path), map_location=device, weights_only=True)
         model.load_state_dict(ckpt["model_state_dict"])
-        log.info("tcn_train", msg=f"Resumed from {ckpt_path}")
+        log.info("tcn_train", detail=f"Resumed from {ckpt_path}")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 

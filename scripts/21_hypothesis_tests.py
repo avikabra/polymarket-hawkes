@@ -172,7 +172,7 @@ def main() -> None:
         if "model_type" not in bootstrap_df.columns and "embedding" in bootstrap_df.columns:
             bootstrap_df["model_type"] = bootstrap_df["embedding"]
     else:
-        log.info("hypothesis_tests", msg="No predictions or bootstrap CIs found — using synthetic approximation.")
+        log.info("hypothesis_tests", detail="No predictions or bootstrap CIs found — using synthetic approximation.")
         bootstrap_df = _compute_synthetic_bootstrap_cis(metrics_df)
         bootstrap_df.to_parquet(BOOTSTRAP_PATH, index=False)
 
