@@ -12,11 +12,18 @@ each priced against that market's own bars_1min series. prior_article_count is a
 group-level statistic (verification is group-level) and is shared across a group's
 fanned-out rows for the same article.
 
+Before the ladder correction, _dedup_same_market_duplicate_content collapses
+wire-syndicated duplicates (same story, different article_id/URL, byte-identical
+body text) down to one row per (market_id, content). See that function's
+docstring — this only removes same-market pseudo-replication, never legitimate
+cross-market fan-out.
+
 Writes: data/analysis/tuples.parquet (one row per VerifiedArticle)
 """
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 import sys
 from pathlib import Path
@@ -40,8 +47,59 @@ CONTRACT_GROUPS_PATH = Path("data/polymarket/contract_groups.parquet")
 ANALYSIS_DIR = Path("data/analysis")
 GDELT_DIR = Path("data/news/gdelt_gkg")
 FEEDS_DIR = Path("data/news/feeds")
+BODIES_DIR = Path("data/news/bodies")
 
 log = get_logger(__name__)
+
+
+def _content_key(article_id: str) -> str:
+    """sha256 of normalized body text, or the article_id itself if no body text.
+
+    Used to detect wire-syndicated duplicates: the same story picked up by
+    multiple outlets gets a distinct article_id (sha256 of a distinct URL,
+    see src/schemas/article.py) but byte-identical body text.
+    """
+    p = BODIES_DIR / f"{article_id}.txt"
+    if not p.exists():
+        return article_id
+    text = p.read_text(encoding="utf-8").strip()
+    if not text:
+        return article_id
+    return hashlib.sha256(" ".join(text.split()).encode()).hexdigest()
+
+
+def _dedup_same_market_duplicate_content(df: pd.DataFrame) -> pd.DataFrame:
+    """Collapse exact-duplicate body-text articles within the same market to one row.
+
+    Investigated 2026-09-30 (see reports/novel_math_design.md): 11.6% of
+    full-text articles share exact-duplicate body content with another
+    article_id — wire syndication. The duplication is bimodal: large clusters
+    spread thin across many markets are legitimate (one real event genuinely
+    moves many companies' markets, each fan-out row is an independent
+    observation); small clusters concentrated in a handful of markets are real
+    pseudo-replication (the same story counted 3-7x as if it were separate
+    evidence for one market). This function removes only the latter — it
+    dedupes WITHIN a market, never across markets, so legitimate cross-market
+    fan-out is untouched.
+
+    Keeps the earliest-published row per (market_id, content_key) — the first
+    appearance is the genuine new-information event; republications carry no
+    incremental signal. Headline-only articles (no body text) are never merged
+    with each other, since their content_key falls back to their own
+    article_id.
+    """
+    before = len(df)
+    df = df.copy()
+    df["_content_key"] = df["article_id"].apply(_content_key)
+    df = df.sort_values("canonical_ts", na_position="last")
+    df = df.drop_duplicates(subset=["market_id", "_content_key"], keep="first")
+    df = df.drop(columns=["_content_key"])
+    after = len(df)
+    log.info(
+        "dedup_same_market_duplicate_content",
+        before=before, after=after, dropped=before - after,
+    )
+    return df
 
 
 def _load_config() -> dict:
@@ -227,6 +285,10 @@ def main() -> None:
             })
 
     out_df = pd.DataFrame(output_rows)
+    # Remove wire-syndication pseudo-replication before the ladder correction,
+    # so cohort pooling (which weights by volume, not by duplicate count) isn't
+    # itself skewed by the same story appearing 3-7x in one market.
+    out_df = _dedup_same_market_duplicate_content(out_df)
     # Joint monotone strike-ladder correction (novel_math_design.md Thread 2) —
     # adds y_logit_{Δ}h_ladder / ladder_n_members_used_{Δ}h columns. Separate
     # stage from reaction_windows/market_chars above: purely additive, does not
