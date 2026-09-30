@@ -40,7 +40,7 @@ _GRIDS: dict[str, dict[str, list]] = {
     },
 }
 
-_INPUT_DIM = 768  # shock/raw embedding dimension (E5-large)
+_INPUT_DIM = 1024  # shock/raw embedding dimension (E5-large-v2 real output dim, verified against live data 2026-09-30 -- CLAUDE.md documents 768, which is stale/wrong)
 
 
 def _build_model(arch: str, cfg: dict) -> torch.nn.Module:

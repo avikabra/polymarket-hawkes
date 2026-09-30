@@ -38,7 +38,7 @@ CHECKPOINTS_DIR = Path("models/checkpoints")
 RESULTS_PATH = Path("results/metrics_all.parquet")
 PREDICTIONS_PATH = Path("results/test_predictions.parquet")
 
-INPUT_DIM = 768
+INPUT_DIM = 1024
 DEFAULT_K = 5
 BATCH_SIZE = 64
 

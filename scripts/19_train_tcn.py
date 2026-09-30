@@ -37,7 +37,7 @@ CHECKPOINTS_DIR = Path("models/checkpoints")
 RESULTS_PATH = Path("results/metrics_all.parquet")
 HPARAM_DIR = Path("models/hparam_search")
 
-INPUT_DIM = 768
+INPUT_DIM = 1024
 
 log = get_logger(__name__)
 
