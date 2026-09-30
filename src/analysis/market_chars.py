@@ -3,7 +3,7 @@
 Fields:
   price_at_article     logit(P_{k,t_i}) — LOCF close_lo at article time
   time_to_resolution_days  (T_k - t_i) in fractional days
-  category             category string ("nfl", "nba", "politics", "geopolitics")
+  category             category string (contract_family value: "corporate_event", "price_ladder", "revenue_ladder", "valuation_ladder", "market_cap_ladder")
   volume_24h_usdc      sum of volume_usdc in bars over [t_i - 24h, t_i]
   prior_article_count  verified articles for same market with ts < t_i
 """
@@ -11,10 +11,6 @@ Fields:
 from __future__ import annotations
 
 import pandas as pd
-
-
-# TODO W7-9: switch _CATEGORY_ORDER to contract_family values ["monthly_strike","corporate_event"] before running scripts 12-21
-_CATEGORY_ORDER = ["nfl", "nba", "politics", "geopolitics"]
 
 
 def compute_market_chars(

@@ -119,7 +119,7 @@ class Trainer:
 
         for batch in self.train_loader:
             self.optimizer.zero_grad()
-            y = batch["y_logit_6h"].to(self.device)
+            y = batch["target"].to(self.device)
             preds = batch_forward(self.model, batch, self.device, self.embedding).squeeze(-1)  # (B,)
             loss = F.mse_loss(preds, y)
             loss.backward()
@@ -139,7 +139,7 @@ class Trainer:
 
         with torch.no_grad():
             for batch in self.val_loader:
-                y = batch["y_logit_6h"].to(self.device)
+                y = batch["target"].to(self.device)
                 preds = batch_forward(self.model, batch, self.device, self.embedding).squeeze(-1)  # (B,)
                 loss = F.mse_loss(preds, y)
                 total_loss += loss.item()

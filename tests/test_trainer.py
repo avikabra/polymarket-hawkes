@@ -30,7 +30,7 @@ class _TinyLinearModel(nn.Module):
 # ---- Synthetic DataLoader helpers ----
 
 def _make_loader(n: int = 64, d: int = 8, seed: int = 0) -> DataLoader:
-    """Create a DataLoader that yields dict batches with 'embedding' and 'y_logit_6h'."""
+    """Create a DataLoader that yields dict batches with 'embedding' and 'target'."""
     g = torch.Generator()
     g.manual_seed(seed)
     X = torch.randn(n, d, generator=g)
@@ -47,7 +47,7 @@ def _make_loader(n: int = 64, d: int = 8, seed: int = 0) -> DataLoader:
             return len(self.X)
 
         def __getitem__(self, i):
-            return {"embedding": self.X[i], "y_logit_6h": self.y[i]}
+            return {"embedding": self.X[i], "target": self.y[i]}
 
     ds = _DictDataset(X, y)
     return DataLoader(ds, batch_size=16, shuffle=True)
@@ -66,7 +66,7 @@ class _ConstantLossLoader:
             # y_pred will be near 0 (untrained model), y will be huge → high MSE
             yield {
                 "embedding": torch.zeros(4, self._d),
-                "y_logit_6h": torch.full((4,), self._loss),
+                "target": torch.full((4,), self._loss),
             }
 
 

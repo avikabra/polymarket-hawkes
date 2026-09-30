@@ -6,27 +6,48 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
-# TODO W7-9: replace SPORTS_CATS / CAT_TO_INT / CAT_LABEL with contract_family mappings before running scripts 15-21
-SPORTS_CATS: frozenset[str] = frozenset(["nfl", "nba"])
-CAT_TO_INT: dict[str, int] = {"nfl": 0, "nba": 0, "politics": 1, "geopolitics": 2}
-CAT_LABEL: dict[int, str] = {0: "sports", 1: "politics", 2: "geopolitics"}
+# purging.py's _CAT_ORDER (the full contract_family schema domain) also
+# declares "other_ladder" and "other" — these 5 are the categories actually
+# observed with real rows in the corpus as of the 2026-09-29 Bouchet run.
+# Verify against real data before trusting this list if the universe has
+# since been expanded (see novel_math_design.md item 5). Replaces the
+# pre-pivot sports/politics/geopolitics taxonomy, which predates the
+# Weeks 7-9 company-contract pivot and no longer matches this column.
+_CATEGORIES: list[str] = [
+    "corporate_event", "price_ladder", "revenue_ladder",
+    "valuation_ladder", "market_cap_ladder",
+]
+CAT_TO_INT: dict[str, int] = {c: i for i, c in enumerate(_CATEGORIES)}
+CAT_LABEL: dict[int, str] = {i: c for i, c in enumerate(_CATEGORIES)}
+
+DEFAULT_TARGET = "y_logit_24h"
+
+
+def _valid_col_for_target(target: str) -> str:
+    """Map a y_logit_{delta}h[_ladder] target to its valid_{delta}h column.
+
+    A _ladder column has no separate validity flag of its own — it is only
+    meaningful where the underlying valid_{delta}h was already True (see
+    src.analysis.ladder_reaction.compute_ladder_adjusted_reactions). Mirrors
+    scripts/16_train_linear_baseline.py's identical helper.
+    """
+    window = target.removeprefix("y_logit_").removesuffix("_ladder")
+    return f"valid_{window}"
 
 
 def _load_and_filter(
     parquet_path: str,
     split: str,
     category_filter: str | None,
+    target: str = DEFAULT_TARGET,
 ) -> pd.DataFrame:
-    """Load parquet, filter on split, valid_6h, and optionally category."""
+    """Load parquet, filter on split, valid_{target}, and optionally category."""
     df = pd.read_parquet(parquet_path)
-    df = df[df["valid_6h"] == True].copy()  # noqa: E712
+    valid_col = _valid_col_for_target(target)
+    df = df[df[valid_col] == True].copy()  # noqa: E712
     df = df[df["split"] == split].copy()
-    if category_filter is not None:
-        if category_filter == "sports":
-            df = df[df["category"].isin(SPORTS_CATS)].copy()
-        elif category_filter in ("politics", "geopolitics"):
-            df = df[df["category"] == category_filter].copy()
-        # "all" → no filter
+    if category_filter is not None and category_filter != "all":
+        df = df[df["category"] == category_filter].copy()
     # Coerce nullable fields
     df["parent_event_id"] = df["parent_event_id"].fillna("").astype(str)
     df["news_type"] = df["news_type"].fillna("").astype(str)
@@ -45,9 +66,11 @@ class ArticleDataset(Dataset):
         split: str,
         embedding_col: str = "shock_embedding",
         category_filter: str | None = None,
+        target: str = DEFAULT_TARGET,
     ) -> None:
         self._embedding_col = embedding_col
-        df = _load_and_filter(parquet_path, split, category_filter)
+        self._target = target
+        df = _load_and_filter(parquet_path, split, category_filter, target)
         self._rows = df.to_dict("records")
 
     def __len__(self) -> int:
@@ -58,7 +81,10 @@ class ArticleDataset(Dataset):
         emb = np.array(row[self._embedding_col], dtype=np.float32)
         return {
             "embedding": torch.from_numpy(emb),
-            "y_logit_6h": torch.tensor(float(row["y_logit_6h"]), dtype=torch.float32),
+            # Always keyed "target" regardless of which y_logit_{delta}h[_ladder]
+            # column was requested — callers (Trainer, batch_forward, per-script
+            # inference loops) read this one key generically.
+            "target": torch.tensor(float(row[self._target]), dtype=torch.float32),
             "article_id": str(row["article_id"]),
             "market_id": str(row["market_id"]),
             "category": int(CAT_TO_INT.get(str(row["category"]), 0)),
@@ -83,12 +109,14 @@ class ArticleSequenceDataset(Dataset):
         tau_max_days: float = 30.0,
         embedding_col: str = "shock_embedding",
         category_filter: str | None = None,
+        target: str = DEFAULT_TARGET,
     ) -> None:
         self._K = K
         self._embedding_col = embedding_col
+        self._target = target
         self._tau_max = tau_max_days * 86400.0  # seconds
 
-        df = _load_and_filter(parquet_path, split, category_filter)
+        df = _load_and_filter(parquet_path, split, category_filter, target)
 
         # Build full market history from the entire parquet (all splits) so that
         # prior context crosses split boundaries correctly.
@@ -157,7 +185,7 @@ class ArticleSequenceDataset(Dataset):
             "mask": torch.from_numpy(mask),
             "timestamps": torch.from_numpy(delta_t),
             "lengths": torch.tensor(window_len, dtype=torch.long),
-            "y_logit_6h": torch.tensor(float(row["y_logit_6h"]), dtype=torch.float32),
+            "target": torch.tensor(float(row[self._target]), dtype=torch.float32),
             "article_id": str(row["article_id"]),
             "market_id": market_id,
             "category": int(CAT_TO_INT.get(str(row["category"]), 0)),

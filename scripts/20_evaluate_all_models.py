@@ -29,7 +29,7 @@ from src.models.linear import LinearModel
 from src.models.lstm_model import LSTMPredictor
 from src.models.tcn_model import TCNPredictor
 from src.models.transformer_model import TransformerPredictor
-from src.training.dataset import ArticleDataset, ArticleSequenceDataset
+from src.training.dataset import ArticleDataset, ArticleSequenceDataset, DEFAULT_TARGET, _valid_col_for_target
 from src.training.forward import batch_forward, select_device
 from src.utils import get_logger
 
@@ -42,22 +42,39 @@ INPUT_DIM = 768
 DEFAULT_K = 5
 BATCH_SIZE = 64
 
+# Every non-default target scripts 16-19 will suffix onto a checkpoint filename
+# (see their identical target_suffix convention). Longest-suffix-first doesn't
+# matter here since we match via str.endswith on the full string, which is
+# exact regardless of order.
+_NON_DEFAULT_TARGETS = [
+    "y_logit_1h_ladder", "y_logit_6h_ladder", "y_logit_24h_ladder",
+    "y_logit_1h", "y_logit_6h",
+]
+
 log = get_logger(__name__)
 
 
 def _parse_checkpoint_name(stem: str) -> dict | None:
-    """Parse filename stem like lstm_sports_shock_best → {arch, category, embedding}.
+    """Parse filename stem like lstm_price_ladder_shock_y_logit_6h_best
+    → {arch, category, embedding, target}. Returns None if it doesn't match.
 
-    Returns None if the stem doesn't match expected format.
+    Filename convention (scripts 16-19): {arch}_{category}_{embedding}[_{target}][_best].
+    The target suffix is present only for a non-default (!= y_logit_24h) target.
     """
     for arch in ("lstm", "transformer", "tcn", "linear"):
         if stem.startswith(arch + "_"):
             rest = stem[len(arch) + 1:]
             rest = rest.removesuffix("_best")
+            target = DEFAULT_TARGET
+            for t in _NON_DEFAULT_TARGETS:
+                if rest.endswith("_" + t):
+                    target = t
+                    rest = rest[: -(len(t) + 1)]
+                    break
             for emb in ("shock", "raw"):
                 if rest.endswith("_" + emb):
                     cat = rest[: -(len(emb) + 1)]
-                    return {"arch": arch, "category": cat, "embedding": emb}
+                    return {"arch": arch, "category": cat, "embedding": emb, "target": target}
     return None
 
 
@@ -72,30 +89,31 @@ def _eval_linear(ckpt_path: Path, parsed: dict) -> tuple[dict | None, pd.DataFra
     if not SHOCK_PATH.exists():
         return None, None
 
+    target = parsed["target"]
+    valid_col = _valid_col_for_target(target)
     df = pd.read_parquet(SHOCK_PATH)
-    df = df[df["valid_6h"] == True].copy()  # noqa: E712
+    df = df[df[valid_col] == True].copy()  # noqa: E712
     emb_col = "shock_embedding" if parsed["embedding"] == "shock" else "raw_embedding"
     cat = parsed["category"]
 
     def _filter(sub: pd.DataFrame) -> pd.DataFrame:
-        if cat == "sports":
-            return sub[sub["category"].isin({"nfl", "nba"})].copy()
-        elif cat in ("politics", "geopolitics"):
-            return sub[sub["category"] == cat].copy()
-        return sub.copy()
+        if cat == "all":
+            return sub.copy()
+        return sub[sub["category"] == cat].copy()
 
     test_df = _filter(df[df["split"] == "test"])
     if len(test_df) == 0:
         return None, None
 
     X_test = np.stack(test_df[emb_col].tolist()).astype(np.float64)
-    y_test = test_df["y_logit_6h"].to_numpy(dtype=np.float64)
+    y_test = test_df[target].to_numpy(dtype=np.float64)
     y_pred = model.predict(X_test)
 
     metrics = {
         "arch": "linear",
         "category": cat,
         "embedding": parsed["embedding"],
+        "target": target,
         "test_r2_oos": compute_r2_oos(y_test, y_pred),
         "test_direction_accuracy": compute_direction_accuracy(y_test, y_pred),
         "checkpoint": str(ckpt_path),
@@ -176,9 +194,12 @@ def _eval_neural(
 
     model.to(device)
 
-    # Recover K and embedding from checkpoint meta; fall back to filename / defaults
+    # Recover K, embedding, and target from checkpoint meta (authoritative — saved
+    # by scripts 17-19); fall back to the filename-parsed target for older
+    # checkpoints trained before --target existed.
     embedding = ckpt_meta.get("embedding", parsed["embedding"])
     K = int(ckpt_meta.get("K", DEFAULT_K))
+    target = ckpt_meta.get("target", parsed["target"])
     emb_col = "shock_embedding" if embedding == "shock" else "raw_embedding"
 
     try:
@@ -188,6 +209,7 @@ def _eval_neural(
             K=K,
             embedding_col=emb_col,
             category_filter=cat_filter,
+            target=target,
         )
     except Exception as exc:
         log.info("eval", ckpt=str(ckpt_path), error=str(exc))
@@ -203,7 +225,7 @@ def _eval_neural(
 
     with torch.no_grad():
         for batch in loader:
-            y = batch["y_logit_6h"]
+            y = batch["target"]
             preds = batch_forward(model, batch, device, embedding).squeeze(-1)
             all_preds.append(preds.cpu().numpy())
             all_targets.append(y.numpy())
@@ -222,6 +244,7 @@ def _eval_neural(
         "arch": arch,
         "category": cat,
         "embedding": embedding,
+        "target": target,
         "test_r2_oos": compute_r2_oos(y_true, y_pred),
         "test_direction_accuracy": compute_direction_accuracy(y_true, y_pred),
         "checkpoint": str(ckpt_path),

@@ -1,7 +1,7 @@
 """Script 15: Validate ArticleSequenceDataset and print per-category/split statistics.
 
 Reads: data/analysis/shock_embeddings.parquet
-Prints: per-category/split observation counts, y_logit_6h mean/std, padding statistics
+Prints: per-category/split observation counts, y_logit_24h mean/std, padding statistics
 No output file written; diagnostic only.
 """
 from __future__ import annotations
@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import numpy as np
 import pandas as pd
 
-from src.training.dataset import ArticleSequenceDataset, CAT_LABEL
+from src.training.dataset import ArticleSequenceDataset, DEFAULT_TARGET
 from src.utils import get_logger
 
 SHOCK_PATH = Path("data/analysis/shock_embeddings.parquet")
@@ -24,14 +24,7 @@ log = get_logger(__name__)
 CONTRACT_COLS = [
     "article_id", "market_id", "shock_embedding", "raw_embedding",
     "category", "split", "canonical_ts", "parent_event_id",
-    "y_logit_6h", "valid_6h", "news_type", "directional_impact",
-]
-
-CATEGORY_FILTERS: list[tuple[str, str | None]] = [
-    ("all", None),
-    ("sports-only", "sports"),
-    ("politics-only", "politics"),
-    ("geopolitics-only", "geopolitics"),
+    DEFAULT_TARGET, "valid_24h", "news_type", "directional_impact",
 ]
 
 
@@ -64,15 +57,15 @@ def main() -> None:
     else:
         print("Contract column check: PASSED")
 
-    # Per-(category, split) y_logit_6h stats
-    print("\n=== y_logit_6h mean/std per (category, split) ===")
-    valid_df = df[df["valid_6h"] == True].copy()  # noqa: E712
+    # Per-(category, split) target stats
+    print(f"\n=== {DEFAULT_TARGET} mean/std per (category, split) ===")
+    valid_df = df[df["valid_24h"] == True].copy()  # noqa: E712
     for cat in sorted(valid_df["category"].unique()):
         for split in ["train", "val", "test"]:
             sub = valid_df[(valid_df["category"] == cat) & (valid_df["split"] == split)]
             if len(sub) == 0:
                 continue
-            vals = sub["y_logit_6h"].dropna()
+            vals = sub[DEFAULT_TARGET].dropna()
             print(
                 f"  category={cat:12s} split={split:5s}  n={len(sub):5d}"
                 f"  mean={vals.mean():.4f}  std={vals.std():.4f}"
@@ -83,7 +76,13 @@ def main() -> None:
     parquet_path = str(SHOCK_PATH)
     K = 5
 
-    for filter_label, cat_filter in CATEGORY_FILTERS:
+    # Derived from the data itself rather than a hardcoded taxonomy — avoids
+    # going stale the way the old sports/politics/geopolitics list did.
+    category_filters: list[tuple[str, str | None]] = [("all", None)] + [
+        (f"{cat}-only", cat) for cat in sorted(df["category"].dropna().unique())
+    ]
+
+    for filter_label, cat_filter in category_filters:
         for split in ["train", "val", "test"]:
             try:
                 ds = ArticleSequenceDataset(

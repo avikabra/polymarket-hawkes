@@ -2,7 +2,7 @@
 
 Usage:
     uv run python scripts/18_train_transformer.py --category all --embedding shock
-    uv run python scripts/18_train_transformer.py --category sports --embedding raw --resume
+    uv run python scripts/18_train_transformer.py --category price_ladder --embedding raw --resume
 
 Reads:  data/analysis/shock_embeddings.parquet
         config/training.yaml
@@ -42,10 +42,25 @@ INPUT_DIM = 768
 log = get_logger(__name__)
 
 
+_CATEGORIES = [
+    "corporate_event", "price_ladder", "revenue_ladder",
+    "valuation_ladder", "market_cap_ladder", "all",
+]
+
+
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Train Transformer predictor.")
-    p.add_argument("--category", choices=["sports", "politics", "geopolitics", "all"], default="all")
+    p.add_argument("--category", choices=_CATEGORIES, default="all")
     p.add_argument("--embedding", choices=["shock", "raw"], default="shock")
+    p.add_argument(
+        "--target",
+        choices=[
+            "y_logit_1h", "y_logit_6h", "y_logit_24h",
+            "y_logit_1h_ladder", "y_logit_6h_ladder", "y_logit_24h_ladder",
+        ],
+        default="y_logit_24h",
+        help="Reaction-window column to predict (see scripts/16's --target help).",
+    )
     p.add_argument("--config-path", default="config/training.yaml")
     p.add_argument("--resume", action="store_true", help="Resume from existing checkpoint if present.")
     p.add_argument("--device", default="auto", help="Device: auto|cuda|mps|cpu")
@@ -79,7 +94,7 @@ def _run_inference(
     all_preds, all_targets = [], []
     with torch.no_grad():
         for batch in loader:
-            y = batch["y_logit_6h"].to(device)
+            y = batch["target"].to(device)
             preds = batch_forward(model, batch, device, embedding).squeeze(-1)
             all_preds.append(preds.cpu().numpy())
             all_targets.append(y.cpu().numpy())
@@ -129,6 +144,7 @@ def main() -> None:
         tau_max_days=tau_max_days,
         embedding_col=emb_col,
         category_filter=cat_filter,
+        target=args.target,
     )
     val_ds = ArticleSequenceDataset(
         parquet_path=str(SHOCK_PATH),
@@ -137,6 +153,7 @@ def main() -> None:
         tau_max_days=tau_max_days,
         embedding_col=emb_col,
         category_filter=cat_filter,
+        target=args.target,
     )
     test_ds = ArticleSequenceDataset(
         parquet_path=str(SHOCK_PATH),
@@ -145,6 +162,7 @@ def main() -> None:
         tau_max_days=tau_max_days,
         embedding_col=emb_col,
         category_filter=cat_filter,
+        target=args.target,
     )
 
     if len(train_ds) == 0:
@@ -165,7 +183,8 @@ def main() -> None:
         tau_max_days=tau_max_days,
     )
 
-    ckpt_name = f"transformer_{args.category}_{args.embedding}_best.pt"
+    target_suffix = "" if args.target == "y_logit_24h" else f"_{args.target}"
+    ckpt_name = f"transformer_{args.category}_{args.embedding}{target_suffix}_best.pt"
     ckpt_path = CHECKPOINTS_DIR / ckpt_name
     CHECKPOINTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -196,6 +215,7 @@ def main() -> None:
         "arch": "transformer",
         "category": args.category,
         "embedding": args.embedding,
+        "target": args.target,
         "K": K,
         "d_model": d_model,
         "nhead": nhead,
@@ -236,6 +256,7 @@ def main() -> None:
         "arch": "transformer",
         "category": args.category,
         "embedding": args.embedding,
+        "target": args.target,
         "val_mse": outcome["best_val_mse"],
         "best_epoch": outcome["best_epoch"],
         "test_r2_oos": test_r2,
@@ -246,10 +267,13 @@ def main() -> None:
     RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
     if RESULTS_PATH.exists():
         existing = pd.read_parquet(RESULTS_PATH)
+        if "target" not in existing.columns:
+            existing["target"] = "y_logit_6h"  # pre-existing rows predate --target
         mask = ~(
             (existing["arch"] == "transformer")
             & (existing["category"] == args.category)
             & (existing["embedding"] == args.embedding)
+            & (existing["target"] == args.target)
         )
         existing = existing[mask]
         combined = pd.concat([existing, new_df], ignore_index=True)

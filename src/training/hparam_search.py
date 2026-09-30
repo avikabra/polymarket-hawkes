@@ -102,6 +102,7 @@ def random_hparam_search(
     max_epochs: int = 30,
     device: str = "auto",
     embedding: str = "shock",
+    target: str = "y_logit_24h",
     output_path: str | None = None,
     seed: int = 42,
 ) -> list[dict]:
@@ -109,7 +110,8 @@ def random_hparam_search(
 
     Args:
         arch: "lstm" | "transformer" | "tcn"
-        category: "sports" | "politics" | "geopolitics" | "all"
+        category: "corporate_event" | "price_ladder" | "revenue_ladder" |
+            "valuation_ladder" | "market_cap_ladder" | "all"
         parquet_path: path to shock_embeddings.parquet
         config: dict loaded from training.yaml (not used here but kept for
                 forward compatibility with LR / batch_size fields)
@@ -140,6 +142,7 @@ def random_hparam_search(
             tau_max_days=30.0,
             embedding_col="shock_embedding",
             category_filter=cat_filter,
+            target=target,
         )
         val_ds = ArticleSequenceDataset(
             parquet_path=parquet_path,
@@ -148,6 +151,7 @@ def random_hparam_search(
             tau_max_days=30.0,
             embedding_col="shock_embedding",
             category_filter=cat_filter,
+            target=target,
         )
 
         if len(train_ds) == 0 or len(val_ds) == 0:
@@ -175,7 +179,7 @@ def random_hparam_search(
             device=resolved_device,
             clip_grad_norm=1.0,
             embedding=embedding,
-            meta={"arch": arch, "category": category, "embedding": embedding, **cfg},
+            meta={"arch": arch, "category": category, "embedding": embedding, "target": target, **cfg},
         )
         outcome = trainer.train()
 
