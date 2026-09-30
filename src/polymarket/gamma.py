@@ -177,8 +177,32 @@ class GammaClient:
             cur = next_day
             await asyncio.sleep(inter_day_sleep)
 
-    async def get_market(self, condition_id: str) -> dict:
-        return await self._get(f"/markets/{condition_id}", {})
+    async def get_market(self, condition_id: str) -> dict | None:
+        """Fetch one market by its conditionId (the hash our market_id is keyed on).
+
+        /markets/{value} expects Gamma's internal numeric id, not conditionId —
+        passing conditionId there 422s ("id is invalid"), verified directly
+        against the live API 2026-09-29. The documented condition_ids array
+        filter on /markets is the correct way to look up by conditionId.
+        """
+        results = await self.get_markets_by_condition_ids([condition_id], closed=True)
+        if results:
+            return results[0]
+        results = await self.get_markets_by_condition_ids([condition_id], closed=False)
+        return results[0] if results else None
+
+    async def get_markets_by_condition_ids(
+        self, condition_ids: list[str], *, closed: bool
+    ) -> list[dict]:
+        """Batch-fetch markets by conditionId. `closed` must be passed explicitly —
+        Gamma's /markets defaults to closed=false even when condition_ids is set,
+        silently dropping closed markets from the result (verified 2026-09-29).
+        """
+        if not condition_ids:
+            return []
+        return await self._get(
+            "/markets", {"condition_ids": condition_ids, "closed": "true" if closed else "false"}
+        )
 
     def parse_market(
         self,
