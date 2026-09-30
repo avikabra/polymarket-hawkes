@@ -13,6 +13,18 @@ purging:
   cv_folds: 5
 
 splits:
-  train_before: "2025-01-01"
-  val_range: ["2025-01-01", "2025-07-01"]
-  test_from: "2025-07-01"
+  # Recalibrated 2026-09-30 from real market_resolved_at quantiles (q60/q80
+  # over 318,184 tuple rows on Bouchet after the resolved_at backfill fixed
+  # gamma.py's field mapping). The pre-pivot cutoffs (2025-01-01/07-01) were
+  # set for the old sports/politics corpus; the post-pivot company-stock
+  # corpus's real resolution dates run 2024-03-21 to 2026-08-27, with only
+  # 10% before 2025-12-12 — the old cutoffs sat almost entirely before the
+  # data even starts, so ~95% of rows landed in "test" regardless of split
+  # logic. These are GLOBAL (not per-category) quantiles by design, matching
+  # the existing single-cutoff split structure — price_ladder dominates the
+  # pooled row count (82%) so it drives this choice; smaller/later categories
+  # (revenue_ladder, valuation_ladder) may still end up mostly in test under
+  # a shared timeline. See reports/novel_math_design.md item 2 follow-up.
+  train_before: "2026-04-17"
+  val_range: ["2026-04-17", "2026-06-10"]
+  test_from: "2026-06-10"
