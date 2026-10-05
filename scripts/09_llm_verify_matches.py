@@ -81,10 +81,13 @@ def _load_article_meta() -> dict[str, dict]:
         return {}
     meta: dict[str, dict] = {}
     for _, row in df.iterrows():
+        entities = row.get("entities")
         meta[row["article_id"]] = {
             "title": str(row.get("title", "")),
             "lede": row.get("lede") or None,
-            "entities": list(row.get("entities") or []),
+            # `entities` is numpy-array-valued — `arr or []` raises ValueError for any
+            # array with >1 element, so this must be an explicit None check.
+            "entities": list(entities) if entities is not None else [],
         }
     return meta
 

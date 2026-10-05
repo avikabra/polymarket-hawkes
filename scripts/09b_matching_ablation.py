@@ -104,7 +104,13 @@ def _load_article_entities() -> dict[str, list[str]]:
     df = build_matching_text_corpus(str(GDELT_DIR), str(FEEDS_DIR))
     if df.empty:
         return {}
-    return {row["article_id"]: list(row.get("entities") or []) for _, row in df.iterrows()}
+    # `entities` is numpy-array-valued — `arr or []` raises ValueError ("truth value
+    # of an array... is ambiguous") for any array with >1 element, so this must be an
+    # explicit None check, not Python's `or`.
+    return {
+        row["article_id"]: list(row["entities"]) if row["entities"] is not None else []
+        for _, row in df.iterrows()
+    }
 
 
 def _build_score_table(
