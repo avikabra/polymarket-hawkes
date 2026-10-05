@@ -42,7 +42,10 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from src.analysis.matching_ablation import compute_score_reaction_correlations
+from src.analysis.matching_ablation import (
+    compute_score_reaction_correlations,
+    compute_single_score_correlation,
+)
 from src.analysis.reaction_windows import compute_reaction_windows
 from src.matching.joint_scoring import (
     group_company_aliases_map,
@@ -157,6 +160,19 @@ def _build_score_table(
             entities=entities,
             company_aliases=company_aliases,
         )
+        # Same member_bars/liquidity inputs, entities withheld — isolates the
+        # entity-grounding term's marginal effect on today's data, with no
+        # confound from other matches.db changes between runs (2026-10-05: the
+        # naive before/after-in-time comparison turned out to be confounded by
+        # unrelated matches.db changes made between the original 0.5124 run and
+        # today — same n_total but different n_used/embedding_rho each time).
+        result_no_entity, _ = score_pair_joint(
+            embedding_score=embedding_score,
+            article_ts=article_ts,
+            timestamp_precision=str(prec),
+            member_bars=member_bars,
+            market_resolved_at=resolved_at,
+        )
         realized = _realized_abs_y_logit_24h(member_bars, article_ts, str(prec), resolved_at)
 
         out_rows.append({
@@ -164,6 +180,7 @@ def _build_score_table(
             "article_id": article_id,
             "embedding_score": float(embedding_score),
             "joint_score": result.match_strength,
+            "joint_score_no_entity": result_no_entity.match_strength,
             "realized_abs_y_logit_24h": realized,
         })
 
@@ -230,10 +247,20 @@ def main() -> None:
               "doesn't have enough real data yet (expected on a local dev machine; run on "
               "Bouchet with real matches.db + bars_1min for a real result).")
     else:
-        print(f"Spearman(embedding-only score, |y_logit_24h|): "
+        usable = score_df.dropna(subset=["realized_abs_y_logit_24h"])
+        no_entity_stats = compute_single_score_correlation(
+            usable["joint_score_no_entity"], usable["realized_abs_y_logit_24h"],
+        )
+        print(f"Spearman(embedding-only score,      |y_logit_24h|): "
               f"rho={stats['embedding_rho']:.4f}  p={stats['embedding_p']:.4g}")
-        print(f"Spearman(joint score,          |y_logit_24h|): "
+        print(f"Spearman(joint score, no entity term, |y_logit_24h|): "
+              f"rho={no_entity_stats['rho']:.4f}  p={no_entity_stats['p']:.4g}")
+        print(f"Spearman(joint score, with entity term, |y_logit_24h|): "
               f"rho={stats['joint_rho']:.4f}  p={stats['joint_p']:.4g}")
+        print()
+        print("(no-entity-term row is the same data/code as the original acceptance test, "
+              "recomputed now, in the same process as the entity-term row — isolates the "
+              "entity term's marginal effect with no time-based confound)")
         print()
         if abs(stats["joint_rho"]) > abs(stats["embedding_rho"]):
             print("Result: joint score correlates MORE strongly with realized |y_logit_24h| "
