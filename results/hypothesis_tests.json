@@ -1,0 +1,82 @@
+{
+  "h1": {
+    "hypothesis": "H1",
+    "r2_shock": -0.009572414908271432,
+    "r2_raw": -0.010464322406446014,
+    "delta_r2": 0.0008919074981745823,
+    "ci_lower": 0.0008919074981745823,
+    "ci_upper": 0.0008919074981745823,
+    "supported": true
+  },
+  "h2": {
+    "hypothesis": "H2",
+    "r2_matrix": {
+      "corporate_event": {
+        "lstm": -0.06017718221093693,
+        "transformer": -0.062449847927507296,
+        "tcn": -0.0835878056334749
+      },
+      "price_ladder": {
+        "lstm": 0.010353074295477827,
+        "transformer": 0.0026924874066507343,
+        "tcn": -0.026376057434284395
+      },
+      "revenue_ladder": {
+        "lstm": NaN,
+        "transformer": NaN,
+        "tcn": NaN
+      },
+      "valuation_ladder": {
+        "lstm": NaN,
+        "transformer": NaN,
+        "tcn": NaN
+      },
+      "market_cap_ladder": {
+        "lstm": NaN,
+        "transformer": NaN,
+        "tcn": NaN
+      }
+    },
+    "winners": {
+      "corporate_event": "lstm",
+      "price_ladder": "lstm",
+      "revenue_ladder": "lstm",
+      "valuation_ladder": "lstm",
+      "market_cap_ladder": "lstm"
+    },
+    "archs_differ": false,
+    "best_category": "price_ladder",
+    "worst_category": "corporate_event",
+    "ci_best": {
+      "lower": 0.010353074295477827,
+      "upper": 0.010353074295477827
+    },
+    "ci_worst": {
+      "lower": -0.06017718221093693,
+      "upper": -0.06017718221093693
+    },
+    "cis_non_overlapping": true,
+    "supported": false
+  },
+  "h3": {
+    "hypothesis": "H3",
+    "r2_quantitative": -0.001143078156301769,
+    "r2_high_attention": -0.1972259758356807,
+    "delta_r2": 0.19608289767937892,
+    "n_quantitative": 3294,
+    "n_high_attention": 28,
+    "supported": true
+  },
+  "h4": {
+    "hypothesis": "H4",
+    "best_ladder_category": "price_ladder",
+    "r2_best_ladder": 0.010353074295477827,
+    "r2_corporate_event": -0.020522954481049904,
+    "best_arch_best_ladder": "lstm",
+    "best_arch_corporate_event": "linear",
+    "delta_r2": 0.03087602877652773,
+    "ci_lower": 0.03087602877652773,
+    "ci_upper": 0.03087602877652773,
+    "supported": true
+  }
+}

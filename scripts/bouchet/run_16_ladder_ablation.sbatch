@@ -1,7 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=16-ladder-abl
-#SBATCH --partition=gpu
-#SBATCH --gpus=1
+#SBATCH --partition=devel
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=00:30:00
