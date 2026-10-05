@@ -74,6 +74,44 @@ def test_is_match_threshold():
     assert below.is_match is False
 
 
+def test_entity_match_raises_match_strength():
+    without = verify_pair_joint(embedding_score=0.5, liquidity_z=0.0, price_impact=None, entity_match=False)
+    with_match = verify_pair_joint(embedding_score=0.5, liquidity_z=0.0, price_impact=None, entity_match=True)
+    assert with_match.match_strength > without.match_strength
+
+
+def test_entity_match_defaults_to_false_unchanged_score():
+    """Callers that don't pass entity_match get the original two-term score back."""
+    default = verify_pair_joint(embedding_score=0.7, liquidity_z=0.5, price_impact=None)
+    explicit_false = verify_pair_joint(embedding_score=0.7, liquidity_z=0.5, price_impact=None, entity_match=False)
+    assert default.match_strength == explicit_false.match_strength
+
+
+def test_entity_match_w3_zero_is_a_no_op():
+    with_match_w3_zero = verify_pair_joint(
+        embedding_score=0.5, liquidity_z=0.0, price_impact=None, entity_match=True, w3=0.0,
+    )
+    without_match = verify_pair_joint(embedding_score=0.5, liquidity_z=0.0, price_impact=None, entity_match=False)
+    assert with_match_w3_zero.match_strength == without_match.match_strength
+
+
+def test_known_output_regression_three_term():
+    """Independent second implementation path for the 3-term formula."""
+    embedding_score, liquidity_z, entity_match = 0.8, 1.0, True
+    w1 = w2 = w3 = 1.0
+
+    clipped = min(max(embedding_score, 0.001), 0.999)
+    expected_logit = math.log(clipped / (1.0 - clipped))
+    expected_quality_logit = w1 * expected_logit + w2 * liquidity_z + w3 * 1.0
+    expected_strength = 1.0 / (1.0 + math.exp(-expected_quality_logit))
+
+    result = verify_pair_joint(
+        embedding_score=embedding_score, liquidity_z=liquidity_z, price_impact=None,
+        w1=w1, w2=w2, entity_match=entity_match, w3=w3,
+    )
+    assert result.match_strength == pytest.approx(round(expected_strength, 4), abs=1e-4)
+
+
 def test_output_schema_matches_rule_verifier():
     joint_result = verify_pair_joint(embedding_score=0.7, liquidity_z=0.5, price_impact=0.1)
     rule_result = verify_pair_rule(0.7, "Team wins", None)

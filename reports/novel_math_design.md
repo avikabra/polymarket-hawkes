@@ -126,3 +126,29 @@ Each new module ships with tests per the original plan's verify checks (monotoni
 regression tests, synthetic-spike detection, singleton-cohort no-op, explicit no-arbitrage
 direction test). Full critique history and all five fixes are in this session's transcript;
 this doc is the durable summary.
+
+## Thread 1 addendum, 2026-10-05: entity-grounding term (GDELT audit follow-up)
+
+A GDELT GKG field audit (real local 1.4GB corpus) found that `entities`
+(V2Persons+V2Organizations, already fetched for every article, used only by script 10's
+dedup) was never used by the matching verifier itself. Added a third additive log-odds
+term: `match_quality_logit += w3 * entity_match` where `entity_match` = does the
+candidate group's company name/alias appear in the article's extracted entities
+(`src/polymarket/company_filter.entity_grounding_match`, `w3=1.0` default, same
+start-fixed convention as w1/w2). Wired into `score_pair_joint` (both script 09's
+`--joint` path and 09b), with `entities`/`company_aliases` optional and defaulting to
+`entity_match=False` — existing callers that don't pass them are unaffected.
+
+**Validated on real local data (not synthetic)**: sampled 2025-06's real GKG file
+(14,718 tagged rows) — `entity_grounding_match` against the article's own
+GDELT-assigned `matched_company` aliases agrees 100% of the time (expected: both derive
+from the same underlying V2Persons/V2Organizations text). The discriminating test is the
+negative case: checked 500 real articles against a *different*, randomly-chosen
+company's aliases (simulating a false embedding-retrieval candidate pair) — false-positive
+rate 0.60% (3/500). This is a real-data precision check, not a predictive-value one.
+
+**Not yet done** (needs Bouchet): re-run `scripts/09b_matching_ablation.py` (now wired
+for entities) against the real 27,132-pair corpus to see whether this lifts Spearman ρ
+above the existing 0.5124 — that's the actual acceptance test, same as the original two
+terms. `scripts/bouchet/run_09b_ablation.sbatch` needs no changes to pick this up (both
+script 09 and 09b load entities fresh from `build_matching_text_corpus`, not a cache).

@@ -2,7 +2,38 @@
 
 from datetime import datetime, timezone
 
-from src.polymarket.company_filter import classify_company_contract, extract_strike_fields
+from src.polymarket.company_filter import (
+    classify_company_contract,
+    entity_grounding_match,
+    extract_strike_fields,
+)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# entity_grounding_match
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_entity_grounding_match_alias_substring_of_entity():
+    # GDELT entity "Apple Inc" contains alias "Apple"
+    assert entity_grounding_match(["Apple Inc", "Tim Cook"], ["Apple"]) is True
+
+
+def test_entity_grounding_match_entity_substring_of_alias():
+    assert entity_grounding_match(["Apple"], ["Apple Inc"]) is True
+
+
+def test_entity_grounding_match_case_insensitive():
+    assert entity_grounding_match(["APPLE INC"], ["apple"]) is True
+
+
+def test_entity_grounding_match_no_match():
+    assert entity_grounding_match(["Microsoft", "Satya Nadella"], ["Apple", "Tim Cook"]) is False
+
+
+def test_entity_grounding_match_empty_inputs():
+    assert entity_grounding_match([], ["Apple"]) is False
+    assert entity_grounding_match(["Apple Inc"], []) is False
+    assert entity_grounding_match([], []) is False
 
 
 # ─────────────────────────────────────────────────────────────────────────────

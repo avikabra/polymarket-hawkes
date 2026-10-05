@@ -45,6 +45,7 @@ import pyarrow.parquet as pq
 from src.analysis.matching_ablation import compute_score_reaction_correlations
 from src.analysis.reaction_windows import compute_reaction_windows
 from src.matching.joint_scoring import (
+    group_company_aliases_map,
     group_member_map,
     group_resolved_at,
     load_group_member_bars,
@@ -52,7 +53,11 @@ from src.matching.joint_scoring import (
     parse_article_ts,
     score_pair_joint,
 )
+from src.news.normalizer import build_matching_text_corpus
 from src.utils import get_logger
+
+GDELT_DIR = Path("data/news/gdelt_gkg")
+FEEDS_DIR = Path("data/news/feeds")
 
 DB_PATH = Path("data/matches/matches.db")
 UNIVERSE_PATH = Path("data/polymarket/universe.parquet")
@@ -93,10 +98,21 @@ def _realized_abs_y_logit_24h(
     return max(impacts) if impacts else None
 
 
+def _load_article_entities() -> dict[str, list[str]]:
+    """article_id -> entities, from the same normalized corpus scripts 07/08/09 use.
+    Added 2026-10-05 for the entity-grounding term — see joint_verifier.py."""
+    df = build_matching_text_corpus(str(GDELT_DIR), str(FEEDS_DIR))
+    if df.empty:
+        return {}
+    return {row["article_id"]: list(row.get("entities") or []) for _, row in df.iterrows()}
+
+
 def _build_score_table(
     conn: sqlite3.Connection,
     group_members: dict[str, list[str]],
     resolved_at_map: dict[str, pd.Timestamp | None],
+    article_entities: dict[str, list[str]],
+    group_aliases: dict[str, list[str]],
     sample: int | None,
     seed: int,
 ) -> pd.DataFrame:
@@ -123,6 +139,8 @@ def _build_score_table(
         member_bars = load_group_member_bars(member_ids)
         article_ts = parse_article_ts(pub_at)
         resolved_at = group_resolved_at(member_ids, resolved_at_map)
+        entities = article_entities.get(article_id, [])
+        company_aliases = group_aliases.get(group_id, [])
 
         result, _liquidity = score_pair_joint(
             embedding_score=embedding_score,
@@ -130,6 +148,8 @@ def _build_score_table(
             timestamp_precision=str(prec),
             member_bars=member_bars,
             market_resolved_at=resolved_at,
+            entities=entities,
+            company_aliases=company_aliases,
         )
         realized = _realized_abs_y_logit_24h(member_bars, article_ts, str(prec), resolved_at)
 
@@ -176,8 +196,12 @@ def main() -> None:
     contract_groups_df = pd.read_parquet(CONTRACT_GROUPS_PATH)
     group_members = group_member_map(contract_groups_df)
     resolved_at_map = market_resolved_at_map(universe_df)
+    group_aliases = group_company_aliases_map(contract_groups_df)
+    article_entities = _load_article_entities()
 
-    score_df = _build_score_table(conn, group_members, resolved_at_map, args.sample, args.seed)
+    score_df = _build_score_table(
+        conn, group_members, resolved_at_map, article_entities, group_aliases, args.sample, args.seed,
+    )
     conn.close()
 
     if score_df.empty:

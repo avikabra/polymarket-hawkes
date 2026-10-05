@@ -26,6 +26,7 @@ import pandas as pd
 from src.matching._types import VerificationResult
 from src.matching.joint_verifier import verify_pair_joint
 from src.matching.liquidity_signal import compute_liquidity_response
+from src.polymarket.company_filter import COMPANY_DICT, entity_grounding_match, gdelt_entity_aliases
 from src.utils import load_bars
 
 
@@ -73,6 +74,20 @@ def group_member_map(contract_groups_df: pd.DataFrame) -> dict[str, list[str]]:
     }
 
 
+def group_company_aliases_map(contract_groups_df: pd.DataFrame) -> dict[str, list[str]]:
+    """group_id -> GDELT-safe entity aliases (company_filter.gdelt_entity_aliases)
+    for that group's company_name, for the entity-grounding term in
+    verify_pair_joint. Falls back to [company_name] if it's not a COMPANY_DICT key
+    (should not happen — company_name is set from COMPANY_DICT at classification
+    time — but fails open rather than raising, matching this module's other maps)."""
+    result: dict[str, list[str]] = {}
+    for _, row in contract_groups_df.iterrows():
+        canon = str(row["company_name"])
+        aliases = COMPANY_DICT.get(canon, [canon])
+        result[str(row["group_id"])] = gdelt_entity_aliases(canon, aliases)
+    return result
+
+
 def group_resolved_at(
     member_ids: list[str], resolved_at_map: dict[str, pd.Timestamp | None]
 ) -> pd.Timestamp | None:
@@ -94,11 +109,17 @@ def score_pair_joint(
     timestamp_precision: str,
     member_bars: dict[str, pd.DataFrame],
     market_resolved_at: pd.Timestamp | None,
+    entities: list[str] | None = None,
+    company_aliases: list[str] | None = None,
 ) -> tuple[VerificationResult, dict]:
-    """Compute the joint (embedding + liquidity) verification for one (group,
-    article) pair. Returns (VerificationResult, raw liquidity_response dict) —
-    the latter is kept for callers that want volume_z/price_impact directly
-    (e.g. diagnostics) without recomputing.
+    """Compute the joint (embedding + liquidity + entity-grounding) verification
+    for one (group, article) pair. Returns (VerificationResult, raw
+    liquidity_response dict) — the latter is kept for callers that want
+    volume_z/price_impact directly (e.g. diagnostics) without recomputing.
+
+    entities/company_aliases are optional and both default to producing
+    entity_match=False (callers that don't pass them get the original two-term
+    score back, unchanged) — see joint_verifier.py's 2026-10-05 extension note.
     """
     liquidity = compute_liquidity_response(
         member_bars=member_bars,
@@ -106,9 +127,11 @@ def score_pair_joint(
         timestamp_precision=timestamp_precision,
         market_resolved_at=market_resolved_at,
     )
+    entity_match = entity_grounding_match(entities or [], company_aliases or [])
     result = verify_pair_joint(
         embedding_score=embedding_score,
         liquidity_z=liquidity["volume_z"],
         price_impact=liquidity["price_impact"],
+        entity_match=entity_match,
     )
     return result, liquidity

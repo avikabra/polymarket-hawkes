@@ -1,4 +1,5 @@
-"""Joint (embedding + liquidity) verification of (group, article) candidate pairs.
+"""Joint (embedding + liquidity + entity-grounding) verification of (group, article)
+candidate pairs.
 
 Per novel_math_design.md Thread 1, "Formula (Q1, Option B)":
   match_quality_logit = w1 * logit(clip(embedding_score, eps, 1-eps)) + w2 * liquidity_z
@@ -8,6 +9,20 @@ A log-odds combination of standardized text-similarity and liquidity signals.
 Caveat (state in thesis text): this borrows the log-odds combination *form*, not
 a literal probability model — logit(embedding_score) is a metaphor reuse of a
 cosine similarity, not a real probability.
+
+Extension added 2026-10-05 (not in the original design doc — a post-hoc addition
+from a GDELT-corpus audit, flag as such in the thesis text): a third additive term,
+w3 * entity_match, where entity_match is a boolean (does the matched company's
+name/alias appear in the article's extracted GDELT entities — see
+src/polymarket/company_filter.py's entity_grounding_match). This is a free signal:
+entities are already fetched for every article in the corpus but were, until now,
+used only by script 10's dedup logic and never by the matching verifier itself.
+w3 defaults to 1.0, matching w1/w2's "start fixed, tuning is a stretch goal" choice.
+Must be re-validated via scripts/09b_matching_ablation.py against the real 27,132-
+pair corpus before being reported as an improvement — not yet done (requires
+Bouchet; see scripts/bouchet/run_09b_ablation.sbatch — unchanged, since both
+script 09's --joint path and 09b load entities fresh from
+build_matching_text_corpus rather than from any cache).
 
 Produces the same VerificationResult schema as rule_verifier/llm_verifier so
 downstream code (script 09's --joint path) is unchanged.
@@ -40,6 +55,8 @@ def verify_pair_joint(
     price_impact: float | None,
     w1: float = 1.0,
     w2: float = 1.0,
+    entity_match: bool = False,
+    w3: float = 1.0,
     *,
     match_threshold: float = 0.50,
 ) -> VerificationResult:
@@ -55,7 +72,9 @@ def verify_pair_joint(
     directional_impact=0 until/unless a signed per-market variant is wired in.
     That's a design gap in the plan doc, not an oversight here — flagging it.
     """
-    match_quality_logit = w1 * _logit(embedding_score) + w2 * liquidity_z
+    match_quality_logit = (
+        w1 * _logit(embedding_score) + w2 * liquidity_z + w3 * (1.0 if entity_match else 0.0)
+    )
     match_strength = _sigmoid(match_quality_logit)
     is_match = match_strength >= match_threshold
 
@@ -77,7 +96,8 @@ def verify_pair_joint(
 
     reasoning = (
         f"joint: embedding_score={embedding_score:.3f}, liquidity_z={liquidity_z:.3f}, "
-        f"price_impact={price_impact}, w1={w1}, w2={w2}, "
+        f"price_impact={price_impact}, entity_match={entity_match}, "
+        f"w1={w1}, w2={w2}, w3={w3}, "
         f"match_quality_logit={match_quality_logit:.3f}, match_strength={match_strength:.3f}"
     )
 

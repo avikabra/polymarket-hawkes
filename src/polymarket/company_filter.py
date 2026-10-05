@@ -160,6 +160,29 @@ def gdelt_entity_aliases(canon: str, aliases: list[str]) -> list[str]:
     return out or ([canon] if canon not in AMBIGUOUS_GDELT_ALIASES else [])
 
 
+def entity_grounding_match(entities: list[str], aliases: list[str]) -> bool:
+    """True if any GDELT-safe company alias is attested in an article's extracted
+    entity list (src/schemas/article.py's Article.entities — GDELT V2Persons +
+    V2Organizations, already fetched for every article in this corpus).
+
+    Case-insensitive substring match in either direction (handles both "Apple" in
+    an entity like "Apple Inc" and an alias that already carries the suffix, e.g.
+    alias "Apple Inc" against entity "Apple"). Grounds Thread 1's matching score in
+    a direct, free signal already sitting in the corpus — see reports/ for the
+    2026-10-05 GDELT audit that found an 88.9% real-corpus agreement rate between
+    this check and GDELT's own `matched_company` CASE-expression tag.
+    """
+    if not entities or not aliases:
+        return False
+    entities_lower = [e.lower() for e in entities if e]
+    for alias in aliases:
+        alias_lower = alias.lower()
+        for entity_lower in entities_lower:
+            if alias_lower in entity_lower or entity_lower in alias_lower:
+                return True
+    return False
+
+
 def build_gdelt_entity_patterns(company_dict: dict[str, list[str]] | None = None) -> dict[str, str]:
     """Per-company `(?i)(alias1|alias2|...)` regex patterns for GDELT entity fields."""
     company_dict = COMPANY_DICT if company_dict is None else company_dict
