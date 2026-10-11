@@ -64,30 +64,22 @@ def _migrate_db(conn: sqlite3.Connection) -> None:
 
 
 def _load_article_meta() -> dict[str, dict]:
-    """Build article_id → {title, lede, entities} lookup from the normalized
-    matching-text corpus.
+    """Build article_id → {title, lede} lookup from the normalized matching-text corpus.
 
     Uses build_matching_text_corpus (same chain script 07 embeds) rather than a raw
     parquet concat — GDELT rows there get a real synthetic entity/theme title instead
     of the placeholder title==url string. Before this fix, verify_pair_rule's keyword
     scoring ran against a bare URL for every GDELT article, making its
     directional_impact/news_type output nearly meaningless.
-
-    `entities` (added 2026-10-05) feeds --joint's entity-grounding term — see
-    src/matching/joint_verifier.py's extension note.
     """
     df = build_matching_text_corpus(str(GDELT_DIR), str(FEEDS_DIR))
     if df.empty:
         return {}
     meta: dict[str, dict] = {}
     for _, row in df.iterrows():
-        entities = row.get("entities")
         meta[row["article_id"]] = {
             "title": str(row.get("title", "")),
             "lede": row.get("lede") or None,
-            # `entities` is numpy-array-valued — `arr or []` raises ValueError for any
-            # array with >1 element, so this must be an explicit None check.
-            "entities": list(entities) if entities is not None else [],
         }
     return meta
 
@@ -213,12 +205,23 @@ def _run_joint(
     verified_pairs: set[tuple[str, str]],
     group_members: dict[str, list[str]],
     resolved_at_map: dict[str, pd.Timestamp | None],
-    article_meta: dict[str, dict],
-    group_aliases: dict[str, list[str]],
 ) -> tuple[int, int]:
-    """Verify all pairs with the joint (embedding + liquidity + entity-grounding)
-    score (novel_math_design.md Thread 1, entity term added 2026-10-05). Returns
-    (verified, skipped).
+    """Verify all pairs with the joint (embedding + liquidity) score
+    (novel_math_design.md Thread 1). Returns (verified, skipped).
+
+    Does NOT pass entities/company_aliases to score_pair_joint, i.e. does not use
+    the entity-grounding term added 2026-10-05 — real A/B test on the production
+    corpus (scripts/09b_matching_ablation.py, same-pass comparison, 2026-10-10)
+    found it HURTS the acceptance metric (rho 0.5086 -> 0.4510), despite the term
+    itself being well-validated in isolation (100% true-positive, 0.6%
+    false-positive against GDELT's own company tag). Mechanism: a flat +1.0
+    log-odds boost swamps the more informative continuous embedding+liquidity
+    signal for the ~90%+ of true-tagged pairs that trivially satisfy it. Per this
+    doc's own stated discipline ("report honestly, do not tune to force a
+    different outcome"), this is a real negative result, not a bug to route
+    around — see novel_math_design.md's 2026-10-10 addendum. The term stays
+    available in joint_verifier.py/joint_scoring.py (and 09b keeps computing both
+    for the documented comparison) but is deliberately not used in production.
 
     A group with no member markets in contract_groups.parquet is skipped (counted
     in `skipped`) — that's a data-integrity gap, distinct from a group whose
@@ -260,8 +263,6 @@ def _run_joint(
             member_bars = load_group_member_bars(member_ids)
             article_ts = parse_article_ts(pub_at)
             resolved_at = group_resolved_at(member_ids, resolved_at_map)
-            entities = article_meta.get(article_id, {}).get("entities", [])
-            company_aliases = group_aliases.get(group_id, [])
 
             result, _liquidity = score_pair_joint(
                 embedding_score=embedding_score,
@@ -269,8 +270,6 @@ def _run_joint(
                 timestamp_precision=str(prec),
                 member_bars=member_bars,
                 market_resolved_at=resolved_at,
-                entities=entities,
-                company_aliases=company_aliases,
             )
             rows.append((
                 group_id, article_id,
@@ -438,18 +437,11 @@ async def main() -> None:
 
     if args.joint:
         log.info("using joint (embedding + liquidity) verifier")
-        from src.matching.joint_scoring import (
-            group_company_aliases_map,
-            group_member_map,
-            market_resolved_at_map,
-        )
+        from src.matching.joint_scoring import group_member_map, market_resolved_at_map
 
         group_members = group_member_map(contract_groups_df)
         resolved_at_map = market_resolved_at_map(universe_df)
-        group_aliases = group_company_aliases_map(contract_groups_df)
-        verified, skipped = _run_joint(
-            conn, verified_pairs, group_members, resolved_at_map, article_meta, group_aliases,
-        )
+        verified, skipped = _run_joint(conn, verified_pairs, group_members, resolved_at_map)
     elif args.openweight:
         log.info("using open-weight verifier (Bouchet HPC)")
         verified, skipped = await _run_openweight(

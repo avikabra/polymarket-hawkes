@@ -152,3 +152,43 @@ for entities) against the real 27,132-pair corpus to see whether this lifts Spea
 above the existing 0.5124 — that's the actual acceptance test, same as the original two
 terms. `scripts/bouchet/run_09b_ablation.sbatch` needs no changes to pick this up (both
 script 09 and 09b load entities fresh from `build_matching_text_corpus`, not a cache).
+
+## Thread 1 addendum, 2026-10-10: entity-grounding term REJECTED — real negative result
+
+Ran the acceptance test. First pass (job 28424401, same day) looked like a regression
+(ρ dropped from the original 0.5124 to 0.4510) but across two *different* matches.db
+states (other uncommitted Bouchet work — dedup fixes, body-text refetch — changed
+n_used and even the embedding-only baseline between the original run and this one), so
+that comparison was confounded and not trustworthy as-is.
+
+Fixed by making `scripts/09b_matching_ablation.py` compute **both** `joint_score`
+(with entity term) and `joint_score_no_entity` (without) in the same loop over the same
+loaded `member_bars`, same matches.db state, same process (job 28427474, 2026-10-10,
+27,132 pairs, 14,717 with a real 24h window):
+
+```
+Spearman(embedding-only score,        |y_logit_24h|): rho=0.2331  p=9.18e-181
+Spearman(joint score, no entity term, |y_logit_24h|): rho=0.5086  p=0
+Spearman(joint score, with entity term, |y_logit_24h|): rho=0.4510  p=0
+```
+
+**Confirmed, confound-free: the entity term hurts.** ρ drops from 0.5086 to 0.4510 when
+added, on identical data. This is a real negative result, not a bug — the entity feature
+itself is accurate in isolation (see the addendum above: 100% true-positive, 0.6%
+false-positive against GDELT's own company tag). The likely mechanism: `entity_match` is
+a flat `+1.0` log-odds boost, the same scale as the other two terms, but it's a near-
+constant for the ~90%+ of pairs where the matched company's name is genuinely present
+(which is most true candidates, by construction of how this corpus was pulled) — so it
+mostly just compresses/flattens the finer-grained, more informative continuous ranking
+that embedding_score + liquidity_z were already providing, rather than adding real
+ranking information.
+
+**Decision**: reverted the production `--joint` path (`scripts/09_llm_verify_matches.py`'s
+`_run_joint`) to the original two-term formula — it no longer passes entities/
+company_aliases to `score_pair_joint`, so `entity_match` defaults to `False` and the
+term is inert there. The code stays available in `joint_verifier.py`/`joint_scoring.py`,
+and `09b_matching_ablation.py` keeps computing the three-way comparison, so this negative
+result stays reproducible and reportable — report it in the thesis as an explored-and-
+rejected extension (a legitimate, honest finding), not silently dropped. **Thread 1's
+accepted, reported result remains the original two-term formula: ρ=0.5086 (recomputed
+2026-10-10, consistent with the original 0.5124) vs embedding-only ρ=0.2331.**
