@@ -33,6 +33,35 @@ def test_parse_market_no_classification_is_other():
     assert market.is_primary_sample is False
 
 
+def test_parse_market_no_events_field_parent_event_id_is_none():
+    # _FIXTURE has no "events" key at all -- the pre-fix, hardcoded-None case.
+    client = GammaClient(cache_dir="/tmp/test_gamma_cache")
+    market = client.parse_market(_FIXTURE, category="nba")
+    assert market.parent_event_id is None
+
+
+def test_parse_market_extracts_parent_event_id_from_events_array():
+    # Real /markets responses carry this (confirmed 2026-10-10) -- was never read.
+    fixture = {**_FIXTURE, "events": [{"id": "903770", "slug": "some-event"}]}
+    client = GammaClient(cache_dir="/tmp/test_gamma_cache")
+    market = client.parse_market(fixture, category="nba")
+    assert market.parent_event_id == "903770"
+
+
+def test_parse_market_empty_events_array_parent_event_id_is_none():
+    fixture = {**_FIXTURE, "events": []}
+    client = GammaClient(cache_dir="/tmp/test_gamma_cache")
+    market = client.parse_market(fixture, category="nba")
+    assert market.parent_event_id is None
+
+
+def test_parse_market_uses_first_event_when_multiple():
+    fixture = {**_FIXTURE, "events": [{"id": "111"}, {"id": "222"}]}
+    client = GammaClient(cache_dir="/tmp/test_gamma_cache")
+    market = client.parse_market(fixture, category="nba")
+    assert market.parent_event_id == "111"
+
+
 def test_parse_market_price_ladder_classification():
     client = GammaClient(cache_dir="/tmp/test_gamma_cache")
     classification = {

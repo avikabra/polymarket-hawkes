@@ -254,6 +254,15 @@ class GammaClient:
         volume_1wk = float(raw.get("volume1wk") or 0.0)
         volume_1mo = float(raw.get("volume1mo") or 0.0)
 
+        # Every /markets response already carries a real "events" array (each
+        # market's parent Polymarket Event, with a stable numeric id) — confirmed
+        # 2026-10-10 by fetching live markets and inspecting raw keys directly.
+        # This was never read; parent_event_id was hardcoded None instead. A
+        # market can in principle belong to more than one event; take the first
+        # (every real market sampled during this fix had exactly one).
+        events_raw = raw.get("events") or []
+        parent_event_id = str(events_raw[0]["id"]) if events_raw else None
+
         return Market(
             market_id=raw["conditionId"],
             slug=raw.get("slug") or raw["conditionId"],
@@ -276,7 +285,7 @@ class GammaClient:
             resolved_outcome=resolved_outcome,
             total_volume_usdc=float(volume_raw),
             contract_family=contract_family,
-            parent_event_id=None,
+            parent_event_id=parent_event_id,
             is_primary_sample=is_primary_sample,
             company_name=company_name,
             ticker=ticker,
