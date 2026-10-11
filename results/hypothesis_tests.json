@@ -4,22 +4,22 @@
     "r2_shock": -0.009572414908271432,
     "r2_raw": -0.010464322406446014,
     "delta_r2": 0.0008919074981745823,
-    "ci_lower": 0.0008919074981745823,
-    "ci_upper": 0.0008919074981745823,
-    "supported": true
+    "ci_lower": -0.026900285159786416,
+    "ci_upper": 0.028004133686212903,
+    "supported": false
   },
   "h2": {
     "hypothesis": "H2",
     "r2_matrix": {
       "corporate_event": {
-        "lstm": -0.06017718221093693,
-        "transformer": -0.062449847927507296,
-        "tcn": -0.0835878056334749
+        "lstm": -0.06017718174701092,
+        "transformer": -0.06244984755391547,
+        "tcn": -0.08358780266390631
       },
       "price_ladder": {
-        "lstm": 0.010353074295477827,
-        "transformer": 0.0026924874066507343,
-        "tcn": -0.026376057434284395
+        "lstm": 0.010353070754123062,
+        "transformer": 0.002692483992044359,
+        "tcn": -0.02637607901914585
       },
       "revenue_ladder": {
         "lstm": NaN,
@@ -48,14 +48,14 @@
     "best_category": "price_ladder",
     "worst_category": "corporate_event",
     "ci_best": {
-      "lower": 0.010353074295477827,
-      "upper": 0.010353074295477827
+      "lower": -0.1555460910544505,
+      "upper": 0.06930765294139402
     },
     "ci_worst": {
-      "lower": -0.06017718221093693,
-      "upper": -0.06017718221093693
+      "lower": -0.09894436787013255,
+      "upper": -0.03391787905307785
     },
-    "cis_non_overlapping": true,
+    "cis_non_overlapping": false,
     "supported": false
   },
   "h3": {
@@ -70,13 +70,13 @@
   "h4": {
     "hypothesis": "H4",
     "best_ladder_category": "price_ladder",
-    "r2_best_ladder": 0.010353074295477827,
+    "r2_best_ladder": 0.010353070754123062,
     "r2_corporate_event": -0.020522954481049904,
     "best_arch_best_ladder": "lstm",
     "best_arch_corporate_event": "linear",
-    "delta_r2": 0.03087602877652773,
-    "ci_lower": 0.03087602877652773,
-    "ci_upper": 0.03087602877652773,
-    "supported": true
+    "delta_r2": 0.030876025235172966,
+    "ci_lower": -0.14578013811720858,
+    "ci_upper": 0.11313493395829728,
+    "supported": false
   }
 }
