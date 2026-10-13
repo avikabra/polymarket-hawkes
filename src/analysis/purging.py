@@ -147,20 +147,44 @@ def purge_by_category(
             # categories that already clear _min_train_rows under the global
             # cutoff are completely untouched by this fallback, so their
             # already-reported results don't shift.
-            resolved = cat_df["market_resolved_at"].dropna()
-            if len(resolved) >= _min_train_rows:
-                resolved_ts = pd.to_datetime(resolved, utc=True)
-                cat_train_cutoff = resolved_ts.quantile(0.6)
-                cat_val_cutoff = resolved_ts.quantile(0.8)
+            is_na = cat_df["market_resolved_at"].apply(lambda v: v is None or pd.isna(v))
+            real_dates = pd.to_datetime(cat_df.loc[~is_na, "market_resolved_at"], utc=True)
+            if len(real_dates) >= _min_train_rows:
+                # Rank-based, not a date-VALUE quantile: a quantile on the raw
+                # dates can collapse to a single point when a category's
+                # resolution dates cluster on just a few distinct days
+                # (revenue_ladder: many markets batch-resolve on the same
+                # quarterly date) -- that would make train_cutoff == val_cutoff
+                # and silently leave val empty, which breaks neural-net
+                # checkpoint selection downstream (scripts 17-19 pick the "best"
+                # checkpoint by val loss). Sorting by rank and slicing by row
+                # count guarantees a real ~60/20/20 split regardless of how the
+                # dates are distributed.
+                order = real_dates.sort_values().index
+                n = len(order)
+                train_end, val_end = int(n * 0.6), int(n * 0.8)
+                train_idx, val_idx = set(order[:train_end]), set(order[train_end:val_end])
+
+                def _rank_split(idx: object) -> str:
+                    if idx in train_idx:
+                        return "train"
+                    elif idx in val_idx:
+                        return "val"
+                    else:
+                        return "test"
+
                 cat_df = cat_df.copy()
-                cat_df["split"] = cat_df["market_resolved_at"].apply(
-                    _make_split_fn(cat_train_cutoff, cat_val_cutoff)
-                )
+                cat_df["split"] = [
+                    "train" if na else _rank_split(idx)
+                    for idx, na in zip(cat_df.index, is_na)
+                ]
                 train_df = cat_df[cat_df["split"] == "train"]
+                val_n = int((cat_df["split"] == "val").sum())
+                test_n = int((cat_df["split"] == "test").sum())
                 print(
                     f"Category={cat} | global cutoff gave {_min_train_rows - 1} or fewer train rows "
-                    f"— falling back to this category's own 60th/80th percentile cutoffs "
-                    f"({cat_train_cutoff.date()} / {cat_val_cutoff.date()}) | train_n={len(train_df)}"
+                    f"— falling back to this category's own rank-based 60/20/20 split "
+                    f"| train_n={len(train_df)} val_n={val_n} test_n={test_n}"
                 )
 
         oos_df = cat_df[cat_df["split"].isin(["val", "test"])]

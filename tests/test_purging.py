@@ -207,6 +207,36 @@ def test_category_starved_by_global_cutoff_falls_back_to_own_quantiles():
     assert (result["split"] == "test").any()
 
 
+def test_fallback_gives_nonempty_val_even_when_dates_cluster_on_few_days():
+    """Regression test for a real failure mode (found 2026-10-13, real
+    revenue_ladder data): most of this category's markets resolve on just a
+    handful of distinct dates (quarterly batches), so a quantile on the raw
+    date VALUES collapsed train_cutoff and val_cutoff to the same date,
+    silently leaving val empty -- which breaks downstream neural-net
+    checkpoint selection (scripts 17-19 pick "best" by val loss). The
+    rank-based fallback must produce a non-empty val split regardless."""
+    n = 60
+    tuples_df, emb_df = _make_data(n=n, category="revenue_ladder")
+    # Only 3 distinct dates for 60 rows -- heavy clustering, same shape as the
+    # real data (257 total rows, 60th/80th percentile both landed on 2026-07-15).
+    cluster_dates = ["2026-01-01", "2026-07-15", "2026-07-15"]  # repeated on purpose
+    dates = [cluster_dates[i % 3] if i % 3 != 2 else "2026-12-01" for i in range(n)]
+    tuples_df["market_resolved_at"] = pd.to_datetime(dates, utc=True).astype(str)
+
+    result = purge_by_category(
+        tuples_df=tuples_df,
+        embeddings_df=emb_df,
+        train_before="2025-01-01",  # before everything -> global split gives 0 train rows
+        val_before="2025-06-01",
+        lambda_grid=[1.0, 10.0],
+        cv_folds=3,
+    )
+
+    assert (result["split"] == "train").sum() > 0
+    assert (result["split"] == "val").sum() > 0, "val must not be empty even when dates cluster"
+    assert (result["split"] == "test").sum() > 0
+
+
 def test_fallback_does_not_affect_a_category_that_already_clears_the_floor():
     """The per-category fallback must be category-scoped: a category that already
     has enough training rows under the shared global cutoff must be completely
