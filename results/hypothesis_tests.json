@@ -1,30 +1,30 @@
 {
   "h1": {
     "hypothesis": "H1",
-    "r2_shock": -0.009572414908271432,
-    "r2_raw": -0.010464322406446014,
-    "delta_r2": 0.0008919074981745823,
-    "ci_lower": -0.026900285159786416,
-    "ci_upper": 0.028004133686212903,
+    "r2_shock": -0.009827185704322616,
+    "r2_raw": -0.010705647516265016,
+    "delta_r2": 0.0008784618119423993,
+    "ci_lower": -0.027322120249871008,
+    "ci_upper": 0.028383613168833293,
     "supported": false
   },
   "h2": {
     "hypothesis": "H2",
     "r2_matrix": {
       "corporate_event": {
-        "lstm": -0.06017718174701092,
-        "transformer": -0.06244984755391547,
-        "tcn": -0.08358780266390631
+        "lstm": -0.06017630722807099,
+        "transformer": -0.06244985079602161,
+        "tcn": -0.08358228524616163
       },
       "price_ladder": {
-        "lstm": 0.010353070754123062,
-        "transformer": 0.002692483992044359,
-        "tcn": -0.02637607901914585
+        "lstm": 0.010353613375317705,
+        "transformer": 0.002692489665443887,
+        "tcn": -0.026373872561964662
       },
       "revenue_ladder": {
-        "lstm": NaN,
-        "transformer": NaN,
-        "tcn": NaN
+        "lstm": -0.05367880291922833,
+        "transformer": -0.028820305205357055,
+        "tcn": -0.015968347998487786
       },
       "valuation_ladder": {
         "lstm": NaN,
@@ -40,20 +40,20 @@
     "winners": {
       "corporate_event": "lstm",
       "price_ladder": "lstm",
-      "revenue_ladder": "lstm",
+      "revenue_ladder": "tcn",
       "valuation_ladder": "lstm",
       "market_cap_ladder": "lstm"
     },
-    "archs_differ": false,
+    "archs_differ": true,
     "best_category": "price_ladder",
     "worst_category": "corporate_event",
     "ci_best": {
-      "lower": -0.1555460910544505,
-      "upper": 0.06930765294139402
+      "lower": -0.1555417435890154,
+      "upper": 0.06930833254049677
     },
     "ci_worst": {
-      "lower": -0.09894436787013255,
-      "upper": -0.03391787905307785
+      "lower": -0.09894460418948557,
+      "upper": -0.03391791350243145
     },
     "cis_non_overlapping": false,
     "supported": false
@@ -70,13 +70,13 @@
   "h4": {
     "hypothesis": "H4",
     "best_ladder_category": "price_ladder",
-    "r2_best_ladder": 0.010353070754123062,
+    "r2_best_ladder": 0.010353613375317705,
     "r2_corporate_event": -0.020522954481049904,
     "best_arch_best_ladder": "lstm",
     "best_arch_corporate_event": "linear",
-    "delta_r2": 0.030876025235172966,
-    "ci_lower": -0.14578013811720858,
-    "ci_upper": 0.11313493395829728,
+    "delta_r2": 0.03087656785636761,
+    "ci_lower": -0.14577579065177348,
+    "ci_upper": 0.11313561355740004,
     "supported": false
   }
 }
