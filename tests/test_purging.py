@@ -149,6 +149,101 @@ def test_purging_oos_residuals_are_computed():
     assert (oos_result["split"] == "val").all()
 
 
+def test_null_resolved_at_defaults_to_train_even_as_nat_after_concat():
+    """Regression test for a real bug (found 2026-10-13): concatenating an
+    all-None market_resolved_at column with a tz-aware datetime column silently
+    upcasts the Nones to NaT, and `NaT is None` is False -- those rows must
+    still default to "train", not fall through to "test"."""
+    n_null, n_dated = 20, 5
+    tuples_null, emb_null = _make_data(n=n_null)
+    tuples_dated, emb_dated = _make_data(n=n_dated)
+    tuples_dated["article_id"] = [f"dated_{i}" for i in range(n_dated)]
+    emb_dated["article_id"] = tuples_dated["article_id"]
+    tuples_dated["market_resolved_at"] = pd.Timestamp("2025-06-01", tz="UTC")  # triggers the upcast on concat
+
+    tuples_df = pd.concat([tuples_null, tuples_dated], ignore_index=True)
+    emb_df = pd.concat([emb_null, emb_dated], ignore_index=True)
+    assert pd.isna(tuples_df["market_resolved_at"].iloc[0])  # confirms the upcast actually happened
+
+    result = purge_by_category(
+        tuples_df=tuples_df,
+        embeddings_df=emb_df,
+        train_before="2025-01-01",
+        val_before="2026-01-01",
+        lambda_grid=[1.0],
+        cv_folds=3,
+    )
+    null_rows = result[result["article_id"].isin(tuples_null["article_id"])]
+    assert (null_rows["split"] == "train").all()
+
+
+def test_category_starved_by_global_cutoff_falls_back_to_own_quantiles():
+    """A category whose resolution dates all fall after the global train_before
+    cutoff (revenue_ladder's real 2026-10-13 situation) must still get fit a
+    real model, via its own 60th/80th-percentile cutoffs -- not silently emit
+    unfit raw embeddings with zero train rows."""
+    n = 60
+    tuples_df, emb_df = _make_data(n=n, category="revenue_ladder")
+    # Spread resolution dates across 2026 so this category has real temporal
+    # variation, entirely AFTER the global train_before cutoff below.
+    dates = pd.date_range("2026-01-01", periods=n, freq="3D", tz="UTC")
+    tuples_df["market_resolved_at"] = dates.astype(str)
+
+    result = purge_by_category(
+        tuples_df=tuples_df,
+        embeddings_df=emb_df,
+        train_before="2025-01-01",  # entirely before every row -> global split gives 0 train rows
+        val_before="2025-06-01",
+        lambda_grid=[1.0, 10.0],
+        cv_folds=3,
+    )
+
+    train_rows = result[result["split"] == "train"]
+    assert len(train_rows) > 0, "fallback should have given this category real training rows"
+    # A real ridge fit happened (lambda_chosen populated), not the raw-embedding bailout.
+    assert train_rows["lambda_chosen"].notna().all()
+    # Both val and test should still exist (the 60/80 split leaves room for both).
+    assert (result["split"] == "val").any()
+    assert (result["split"] == "test").any()
+
+
+def test_fallback_does_not_affect_a_category_that_already_clears_the_floor():
+    """The per-category fallback must be category-scoped: a category that already
+    has enough training rows under the shared global cutoff must be completely
+    unaffected by another starved category's fallback in the same run."""
+    n_healthy = 60
+    tuples_healthy, emb_healthy = _make_data(n=n_healthy, category="price_ladder")
+    tuples_healthy["market_resolved_at"] = pd.Timestamp("2024-01-01", tz="UTC").isoformat()  # before global cutoff
+
+    n_starved = 60
+    tuples_starved, emb_starved = _make_data(n=n_starved, category="revenue_ladder")
+    tuples_starved["article_id"] = [f"rev_{i}" for i in range(n_starved)]
+    emb_starved["article_id"] = tuples_starved["article_id"]
+    dates = pd.date_range("2026-01-01", periods=n_starved, freq="3D", tz="UTC")
+    tuples_starved["market_resolved_at"] = dates.astype(str)
+
+    tuples_df = pd.concat([tuples_healthy, tuples_starved], ignore_index=True)
+    emb_df = pd.concat([emb_healthy, emb_starved], ignore_index=True)
+
+    result = purge_by_category(
+        tuples_df=tuples_df,
+        embeddings_df=emb_df,
+        train_before="2025-01-01",
+        val_before="2025-06-01",
+        lambda_grid=[1.0, 10.0],
+        cv_folds=3,
+    )
+
+    price_ladder_rows = result[result["article_id"].isin(tuples_healthy["article_id"])]
+    # The healthy category should be entirely "train" (all its dates precede
+    # the global cutoff) -- the fallback for revenue_ladder must not have
+    # touched its split assignment at all.
+    assert (price_ladder_rows["split"] == "train").all()
+
+    revenue_rows = result[result["article_id"].isin(tuples_starved["article_id"])]
+    assert (revenue_rows["split"] == "train").any(), "revenue_ladder should still get its own fallback"
+
+
 def test_one_hot_produces_expected_contract_family_columns():
     """One-hot column set must match the real contract_family values, not the old sports set."""
     df = pd.DataFrame({"category": ["price_ladder", "corporate_event", "valuation_ladder"]})

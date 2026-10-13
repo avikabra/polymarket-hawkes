@@ -105,22 +105,30 @@ def purge_by_category(
     train_cutoff = pd.Timestamp(train_before, tz="UTC")
     val_cutoff = pd.Timestamp(val_before, tz="UTC")
 
-    def _split(resolved_at) -> str:
-        if resolved_at is None:
-            return "train"  # default
-        ts = pd.Timestamp(resolved_at)
-        if ts.tzinfo is None:
-            ts = ts.tz_localize("UTC")
-        if ts < train_cutoff:
-            return "train"
-        elif ts < val_cutoff:
-            return "val"
-        else:
-            return "test"
+    def _make_split_fn(t_cutoff: pd.Timestamp, v_cutoff: pd.Timestamp):
+        def _split(resolved_at) -> str:
+            # `is None` alone misses NaT: concatenating an all-None column with a
+            # tz-aware datetime column silently upcasts the None values to NaT
+            # (confirmed 2026-10-13), and `pd.NaT is None` is False, so those rows
+            # fell through to the final `else` ("test") instead of defaulting to
+            # "train" — pd.isna() catches both.
+            if resolved_at is None or pd.isna(resolved_at):
+                return "train"  # default
+            ts = pd.Timestamp(resolved_at)
+            if ts.tzinfo is None:
+                ts = ts.tz_localize("UTC")
+            if ts < t_cutoff:
+                return "train"
+            elif ts < v_cutoff:
+                return "val"
+            else:
+                return "test"
+        return _split
 
-    merged["split"] = merged["market_resolved_at"].apply(_split)
+    merged["split"] = merged["market_resolved_at"].apply(_make_split_fn(train_cutoff, val_cutoff))
 
     result_rows = []
+    _min_train_rows = max(cv_folds, 10)
 
     for cat in merged["category"].unique():
         cat_df = merged[merged["category"] == cat].dropna(subset=_CHAR_COLS)
@@ -128,10 +136,38 @@ def purge_by_category(
             continue
 
         train_df = cat_df[cat_df["split"] == "train"]
+
+        if len(train_df) < _min_train_rows:
+            # The shared global cutoff can starve a smaller/later category of
+            # training data entirely (price_ladder dominates the pooled
+            # quantiles the global cutoff was chosen from — see
+            # reports/novel_math_design.md's split-recalibration note, and
+            # 2026-10-13's revenue_ladder decision). Before giving up, retry
+            # with THIS CATEGORY'S OWN resolution-date quantiles — other
+            # categories that already clear _min_train_rows under the global
+            # cutoff are completely untouched by this fallback, so their
+            # already-reported results don't shift.
+            resolved = cat_df["market_resolved_at"].dropna()
+            if len(resolved) >= _min_train_rows:
+                resolved_ts = pd.to_datetime(resolved, utc=True)
+                cat_train_cutoff = resolved_ts.quantile(0.6)
+                cat_val_cutoff = resolved_ts.quantile(0.8)
+                cat_df = cat_df.copy()
+                cat_df["split"] = cat_df["market_resolved_at"].apply(
+                    _make_split_fn(cat_train_cutoff, cat_val_cutoff)
+                )
+                train_df = cat_df[cat_df["split"] == "train"]
+                print(
+                    f"Category={cat} | global cutoff gave {_min_train_rows - 1} or fewer train rows "
+                    f"— falling back to this category's own 60th/80th percentile cutoffs "
+                    f"({cat_train_cutoff.date()} / {cat_val_cutoff.date()}) | train_n={len(train_df)}"
+                )
+
         oos_df = cat_df[cat_df["split"].isin(["val", "test"])]
 
-        if len(train_df) < max(cv_folds, 10):
-            # Not enough data to fit — emit raw embeddings with split label
+        if len(train_df) < _min_train_rows:
+            # Still not enough, even with its own quantiles — genuinely too
+            # little data for this category. Emit raw embeddings with split label.
             for _, row in cat_df.iterrows():
                 emb = np.array(row["analysis_embedding"], dtype=np.float32)
                 result_rows.append({
