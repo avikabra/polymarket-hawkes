@@ -26,6 +26,7 @@ dependencies = [
     "db-dtypes>=1.6.0",
     "pyyaml>=6.0",
     "matplotlib>=3.11.1",
+    "yfinance>=1.7.0",
 ]
 
 [build-system]
