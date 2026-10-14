@@ -1,0 +1,76 @@
+{
+  "reaction_model": {
+    "n_train": 9471,
+    "n_val": 549,
+    "n_test": 885,
+    "candidates_fit_on_train": {
+      "ols_intercept": {
+        "slope": 2.347718377678394,
+        "intercept": -0.07088447292384384
+      },
+      "ols_through_origin": {
+        "slope": 2.5290324559809743,
+        "intercept": 0.0
+      },
+      "huber_intercept": {
+        "slope": 0.07051107280124842,
+        "intercept": -0.00429703724153968
+      }
+    },
+    "val_r2_by_candidate": {
+      "ols_intercept": -0.09291198996506433,
+      "ols_through_origin": -0.16387857459924748,
+      "huber_intercept": -0.15145949864739716
+    },
+    "any_candidate_beats_no_relationship_baseline_on_val": false,
+    "chosen_model": "ols_intercept",
+    "final_equation": {
+      "form": "y_logit_24h = slope * stock_log_return + intercept",
+      "slope": 2.347718377678394,
+      "intercept": -0.07088447292384384
+    },
+    "held_out_test_r2": -0.00879369782127526,
+    "held_out_test_n": 885,
+    "honest_conclusion": "No candidate form beats a flat 'predict the mean' baseline on held-out data (val r2 is negative for all three forms; test r2 is also negative for the selected form). The pooled, whole-sample correlation reported earlier (rho=0.119) is real as a population-level statistic -- it is not a measurement artifact -- but it is not stable enough across time/companies to support a model fit on one slice of the data predicting another. The honest equation below is reported for completeness and as the input to the pair-trade sketch, not as a validated predictive tool.",
+    "category_slope_check_train_val_only": {
+      "corporate_event": {
+        "n": 5950,
+        "slope": 1.5579987231720742
+      },
+      "price_ladder": {
+        "n": 4038,
+        "slope": 4.153269632000058
+      }
+    },
+    "pooled_vs_category_slopes_differ_a_lot": true,
+    "category_check_conclusion": "Category slopes differ enough to warrant reporting separately, but see n per category before trusting this."
+  },
+  "pairs_trade_backtest": {
+    "n_trades": 881,
+    "directional_hit_rate": 0.31214528944381387,
+    "directional_hit_rate_baseline": 0.5,
+    "sign_based_pnl": {
+      "mean_pnl_log_odds": -0.045994312228358696,
+      "std_pnl_log_odds": 0.7518298531096093,
+      "sharpe_per_trade": -0.061176490981468365
+    },
+    "magnitude_weighted_pnl": {
+      "mean_pnl_log_odds": 0.0036302072965366116,
+      "std_pnl_log_odds": 0.051907157665298506,
+      "sharpe_per_trade": 0.06993654555205041
+    },
+    "permutation_test": {
+      "n_permutations": 2000,
+      "real_strategy_mean_pnl": -0.045994312228358696,
+      "null_mean_pnl": -0.04695972860894891,
+      "null_std_pnl": 0.02366559966857877,
+      "real_strategy_percentile_vs_null": 0.5315,
+      "interpretation": "Fraction of random (sign-shuffled) strategies with LOWER mean P&L than the real one. Close to 1.0 means the real strategy's edge is unlikely to be chance; close to 0.5 means it is indistinguishable from randomly guessing direction."
+    },
+    "not_modeled": [
+      "Polymarket bid-ask spread and taker fees, which could easily exceed a signal this small on a per-trade basis",
+      "Capital requirements / position sizing beyond a simple magnitude weight",
+      "Whether the real stock's move is actually observable before Polymarket's contract price updates -- GDELT's day-precision timestamps cannot confirm lead-lag ordering at sub-day resolution, so this strategy's core timing assumption is plausible but unverified with the data available here"
+    ]
+  }
+}
