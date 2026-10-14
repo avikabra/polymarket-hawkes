@@ -6,7 +6,7 @@ size: 16:9
 ---
 
 # News Shocks in Prediction Markets
-### Real results, 2026-10-13
+### Real results, 2026-10-14
 
 Avi Kabra
 
@@ -48,7 +48,7 @@ What's new: applying both combinations to this specific problem, matching news t
 
 ---
 
-## Result 1: contracts do react to news
+## Result 1: contracts do react to news, with one caveat found since
 
 | Method | Spearman &rho; vs. actual price move | n |
 |---|---|---|
@@ -56,6 +56,8 @@ What's new: applying both combinations to this specific problem, matching news t
 | Text similarity alone | 0.233 | 14,717 |
 
 This is half the answer to our question: a company's news and its market's trading behavior are measurably linked. Every later result depends on this step, it is how we built a trustworthy dataset of article-reaction pairs at all.
+
+**New finding (next section): part of the 0.509 number is inflated.** Validated against the real stock's own reaction instead of Polymarket's own data, the matching score drops to &rho;=0.029; text similarity alone holds up better (&rho;=0.092). The volume component was likely riding a coincidence, not genuinely validating match quality.
 
 ---
 
@@ -97,11 +99,53 @@ Tested with bootstrap resampling clustered by real-world event, so duplicate cov
 
 ---
 
+## A harder question: does it match the real world?
+
+Every result so far compares Polymarket against **itself** — the matching score vs. Polymarket's own price move, the prediction models vs. Polymarket's own target. None of it checks whether the real, publicly-traded company also reacted, or whether Polymarket's reaction is proportionate.
+
+Pulled real daily stock prices for the 78 public companies in our universe (yfinance) and re-ran both novel-math threads against this external benchmark.
+
+---
+
+## Result 5: a real relationship, but not proportionate
+
+| Test | Spearman &rho; | Significant? |
+|---|---|---|
+| Direction of Polymarket's move vs. the real stock's move | 0.119 | Yes (n=10,905) |
+| **Size** of Polymarket's move vs. **size** of the real stock's move | 0.015 | No |
+
+Polymarket leans the right direction, weakly. But the size of its reaction tells you almost nothing about how big the real-world move was. A company-clustered bootstrap (correcting for shared companies/time windows across articles) confirms the directional result is real, not a statistical artifact: 95% CI [0.047, 0.188], excludes zero.
+
+---
+
+## Result 6: a tradeable signal, isolated to one contract type
+
+Twenty-three model specifications were tried against the full external benchmark before finding one that survives scrutiny (literature-standard forms, a novel match-quality moderator, window and liquidity variants, a digital-option-pricing structure). The signal turned out to be concentrated in **price-target contracts** specifically, where the strike is a real stock price in the same units as the real stock:
+
+| Check | Result |
+|---|---|
+| Per-split correlation (train/val/test, independent) | 0.18 / 0.14 / 0.18, all significant |
+| Company-clustered bootstrap (price-target only) | 95% CI [0.043, 0.288], excludes zero |
+| Backtest P&L vs. 5,000 random permutations | 100th percentile (p=0.0002) |
+| **Bonferroni-corrected for all 23 forms tried** | **p=0.0044, still significant** |
+
+Equation: `y_logit_24h = 0.158 · (stock_return / company_volatility) − 0.184`. Survives realistic transaction costs (10-40bps) with under 2% P&L erosion.
+
+---
+
+## Result 6, continued: what this is and isn't
+
+- **Is**: a real, cluster-robust, theoretically-motivated signal, backtested and statistically significant after correcting for every model tried
+- **Isn't**: a precisely calibrated prediction model (R&sup2; stays negative — expected for an effect this size, not a failure) or proven beyond price-target contracts
+- **Real limitation**: only 16 companies back this finding; held out exactly 4 companies never seen in training (bank stocks) and the signal held
+
+---
+
 ## So, does Polymarket respond to news shocks?
 
-**Yes, but only partly.** There is a real, strong relationship between an article and the price move it precedes (Result 1): when we can identify the right article, the market has reacted.
+**Yes, but more narrowly than it first looked.** Polymarket's own data shows a real reaction (Result 1, with the volume-term caveat), and that reaction is not predictable in advance from the article alone (Results 2-4).
 
-**That reaction is not predictable in advance.** Every model found essentially no exploitable signal (Results 2-4). The market absorbs news efficiently enough that we cannot forecast the size or direction of the reaction ahead of time, with the tools and data available here.
+**Checked against the real world, the picture sharpens further.** The reaction tracks the real stock's direction, weakly but robustly (Result 5) — not its size. And a genuinely tradeable version of this signal exists, but only for price-target contracts specifically (Result 6), surviving the most adversarial testing we could throw at it.
 
 ---
 
@@ -118,12 +162,13 @@ Tested with bootstrap resampling clustered by real-world event, so duplicate cov
 - GDELT is free but noisy, and day-precision is a structural limit of this feed, not a gap to close
 - `resolved_at` and `parent_event_id` are each about 40% backfilled from Polymarket's API; fallbacks cover the rest
 - The revenue-target result rests on 19 training examples: real, but small
+- The price-target trading signal (Result 6) rests on 16 companies total; transaction costs are literature-based, not Polymarket's measured spreads
 
 ---
 
 ## Recommendation
 
-- Lead the thesis with the matching result (Result 1): it is the clean, strong, genuine contribution
-- Present the consistency correction and the model comparison as honest negative results, not failures
+- Lead the thesis with the matching result (Result 1) and the price-target trading signal (Result 6): the two clean, genuine, adversarially-tested contributions
+- Present the consistency correction, the model comparison, and the external-benchmark proportionality check as honest negative/mixed results, not failures
 - Keep the 200-market floor as the rule, with `valuation_ladder` as a documented, explicit exception
-- A licensed newswire is the single highest-leverage next step if budget allows; everything else here is close to final
+- Measuring Polymarket's actual historical bid-ask spread would replace Result 6's literature-based cost estimate with a real one — the highest-leverage next step
