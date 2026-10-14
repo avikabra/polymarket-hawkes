@@ -91,6 +91,35 @@ def _bracket_log_return(
     return float(np.log(next_close / prior_close))
 
 
+def _tight_bracket_log_return(
+    company_dates: pd.DataFrame, article_date: pd.Timestamp
+) -> float | None:
+    """Tighter variant: last close AT OR BEFORE article_date (not strictly
+    before) to the first close strictly after article_date -- a ~24-48h
+    window instead of the ~48-72h window _bracket_log_return uses. Tested
+    separately (not a replacement) because the looser bracket may be
+    diluting real signal with extra noise from an unnecessarily wide window,
+    per the event-study/price-discovery literature review's flagged root
+    cause for why the pooled relationship doesn't generalize."""
+    dates = company_dates["date"]
+    closes = company_dates["adj_close"]
+
+    prior_idx = dates.searchsorted(article_date, side="right") - 1
+    if prior_idx < 0:
+        return None
+    next_idx = dates.searchsorted(article_date, side="right")
+    if next_idx >= len(dates) or next_idx <= prior_idx:
+        next_idx = prior_idx + 1
+        if next_idx >= len(dates):
+            return None
+
+    prior_close = closes.iloc[prior_idx]
+    next_close = closes.iloc[next_idx]
+    if prior_close <= 0 or next_close <= 0:
+        return None
+    return float(np.log(next_close / prior_close))
+
+
 def _material_move_table(poly: np.ndarray, stock: np.ndarray, quantile: float = 0.75) -> dict:
     """2x2 contingency: did the stock move materially (top quantile of |stock|)
     vs. did Polymarket move materially (top quantile of |poly|), using each
@@ -163,7 +192,8 @@ def part_a_main_benchmark(stock_lookup: dict, universe_df: pd.DataFrame) -> dict
     # suggest, since it's unique to this project's matching pipeline.
     if TUPLES_PATH.exists():
         price_df = pd.read_parquet(
-            TUPLES_PATH, columns=["article_id", "market_id", "group_id", "price_at_article"]
+            TUPLES_PATH,
+            columns=["article_id", "market_id", "group_id", "price_at_article", "volume_24h_usdc"],
         )
         price_df["market_id"] = price_df["market_id"].astype(str)
         price_df = price_df.drop_duplicates(subset=["article_id", "market_id"])
@@ -171,6 +201,7 @@ def part_a_main_benchmark(stock_lookup: dict, universe_df: pd.DataFrame) -> dict
     else:
         df["price_at_article"] = np.nan
         df["group_id"] = np.nan
+        df["volume_24h_usdc"] = np.nan
 
     if MATCHING_ABLATION_PATH.exists():
         scores_df = pd.read_parquet(
@@ -190,14 +221,18 @@ def part_a_main_benchmark(stock_lookup: dict, universe_df: pd.DataFrame) -> dict
         ret = _bracket_log_return(prices, row["canonical_ts"])
         if ret is None:
             continue
+        ret_tight = _tight_bracket_log_return(prices, row["canonical_ts"])
         rows.append({
             "company_id": cid, "category": row["category"], "split": row["split"],
             "y_logit_24h": row["y_logit_24h"],
             "y_logit_24h_ladder": row["y_logit_24h_ladder"],
             "stock_log_return": ret,
+            "stock_log_return_tight": ret_tight,
             "price_at_article": row.get("price_at_article"),
             "embedding_score": row.get("embedding_score"),
             "joint_score": row.get("joint_score"),
+            "canonical_ts": row["canonical_ts"],
+            "volume_24h_usdc": row.get("volume_24h_usdc"),
         })
 
     joined = pd.DataFrame(rows)
