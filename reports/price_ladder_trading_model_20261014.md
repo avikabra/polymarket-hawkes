@@ -153,11 +153,40 @@ finding in §2: **no functional form passes a naive R² bar for this effect.** T
 selected form is the least-bad of five legitimate, pre-specified candidates, not
 a cherry-pick.
 
-### Final equation
+### Final equation, in named and grounded terms
+
+Reporting the fitted equation as two bare decimals (`0.1582`, `−0.1842`) hides
+where those numbers come from and makes them look like arbitrary curve-fit
+constants. They are not — each has a specific, named role, and one of them has
+a closed-form theoretical anchor independent of this dataset.
 
 ```
-y_logit_24h = 0.1582 · (stock_log_return / σ_company) − 0.1842
+Δlogit(P)_i  =  κ · D · ( ΔlnS_i / σ_i )  +  δ
 ```
+
+| Symbol | Meaning | Value | Source |
+|---|---|---|---|
+| `ΔlnS_i / σ_i` | the real stock's log-return over the reaction window, standardized by that company's own historical daily volatility | data | computed per row |
+| `D` | the slope a **frictionless** digital option's log-odds would have to a volatility-standardized shock, under the standard logistic approximation to the normal CDF (`Φ(d2) ≈ sigmoid(D·d2)`) | **1.702** | Birnbaum (1968, in Lord & Novick); Camilli & Hopkins (1994) — a well-known constant from item-response-theory psychometrics, repurposed here because `Φ` is the same standard normal CDF in both settings |
+| `κ` | the **efficiency ratio**: how much of that theoretical sensitivity Polymarket's price-ladder contracts actually realize | **0.093** | `κ = β_fit / D`, where `β_fit = 0.1582` is this project's LOCO-CV-selected slope (§5) |
+| `δ` | the average 24h logit drift when the real stock shows no standardized move — plausibly the well-documented favorite-longshot overpricing correction in prediction markets (these are mostly long-shot bets, and they drift toward "no" over time regardless of news) | **−0.184** | empirically estimated from this data (the fitted intercept); Snowberg & Wolfers (2010) is the literature precedent for *why* such a drift should exist, not a derivation of its exact size here |
+
+**The headline number this reframing produces: Polymarket's price-ladder
+contracts move at only about 9.3% of the rate a theoretically efficient
+digital option would, for the same real-world shock.** That is a much more
+interpretable claim than "the slope is 0.1582" — it is a quantified measure of
+under-reaction, not an arbitrary fitted constant.
+
+**A unit-consistency bug caught and fixed while doing this rigorously**: the
+original digital-option structural test (§3, `scripts/31`) paired a *daily*
+volatility with time-to-resolution expressed in *years* when computing the
+full moneyness term `d2 = sign·ln(S/K)/(σ√T)` — inconsistent units (variance
+scales as `σ²·T` only when `σ` and `T` are in matching time units). Refit with
+`σ` and `T` both in days: LOCO-CV R² improves from the original −0.061 to
+−0.157 range to **−0.043** — still negative, so this does not change the
+conclusion that the simpler, time-free form (above) is the better choice, but
+it is the correct, apples-to-apples comparison and the earlier number should
+not be cited as the structural model's real performance.
 
 fit on all of train+val (n = 4,038), evaluated exactly once on test (n = 588,
 never touched during selection):

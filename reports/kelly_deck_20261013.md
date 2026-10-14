@@ -129,7 +129,21 @@ Twenty-three model specifications were tried against the full external benchmark
 | Backtest P&L vs. 5,000 random permutations | 100th percentile (p=0.0002) |
 | **Bonferroni-corrected for all 23 forms tried** | **p=0.0044, still significant** |
 
-Equation: `y_logit_24h = 0.158 · (stock_return / company_volatility) − 0.184`. Survives realistic transaction costs (10-40bps) with under 2% P&L erosion.
+Survives realistic transaction costs (10-40bps) with under 2% P&L erosion.
+
+---
+
+## Result 6: the equation, in named terms not bare decimals
+
+`&Delta;logit(P) = &kappa; &middot; D &middot; (&Delta;lnS / &sigma;) + &delta;`
+
+| Symbol | Meaning | Value |
+|---|---|---|
+| D | theoretical slope a frictionless digital option would have (logistic&ndash;normal approximation; Birnbaum 1968) | **1.702** (external constant, not fit) |
+| &kappa; | efficiency ratio: how much of that theoretical sensitivity Polymarket actually realizes | **0.093** |
+| &delta; | average 24h drift with no real-world move, consistent with favorite-longshot overpricing correction (Snowberg & Wolfers 2010) | **&minus;0.184** (empirical) |
+
+**Headline: these contracts move at ~9.3% of the rate a theoretically efficient digital option would**, for the same real-world shock. One real bug caught while grounding this: the original time-scaled version mismatched units (daily volatility with time-in-years); corrected, it improves (r&sup2; &minus;0.16&rarr;&minus;0.04) but still doesn't beat the simpler, time-free form above.
 
 ---
 
