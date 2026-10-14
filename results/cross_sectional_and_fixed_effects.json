@@ -1,0 +1,22 @@
+{
+  "cross_sectional_company_level": {
+    "status": "ok",
+    "n_companies": 34,
+    "min_articles_per_company_required": 20,
+    "spearman_rho": -0.10129870129870129,
+    "spearman_p": 0.5686478662315362,
+    "pearson_r": -0.10075787191523329,
+    "pearson_p": 0.570724454472101,
+    "interpretation": "Tests whether companies with generally larger real stock reactions to news also have generally larger Polymarket reactions, aggregating away event-level noise. A positive, significant correlation here would be a genuinely new, different claim from anything tested in scripts 24-27 (which all failed at the event level)."
+  },
+  "within_company_fixed_effects": {
+    "n_train": 9471,
+    "n_val": 549,
+    "n_test": 885,
+    "slope": 2.820294865808682,
+    "val_r2": -0.15416149936272516,
+    "beats_baseline_on_val": false,
+    "held_out_test_r2": null,
+    "conclusion": "Within-company variation does not beat a flat baseline on val either -- cross-company heterogeneity does not appear to be masking a hidden relationship."
+  }
+}

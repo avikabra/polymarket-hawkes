@@ -1,0 +1,14 @@
+{
+  "classification_model": {
+    "base_rate_p_y_positive_by_split": {
+      "train": 0.2546721571111815,
+      "val": 0.19854280510018216,
+      "test": 0.19548022598870057
+    },
+    "coefficient_on_stock_log_return": 3.692450670035293,
+    "intercept_logit": -1.063867136973633,
+    "val_auc": 0.42803377814845706,
+    "beats_baseline_auc_0.5_on_val": false,
+    "conclusion": "Does not beat the 0.5 AUC baseline on val -- the classification reframing does not generalize either, despite the robust rank correlation found in script 29."
+  }
+}

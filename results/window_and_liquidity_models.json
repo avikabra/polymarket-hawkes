@@ -1,0 +1,39 @@
+{
+  "tight_window_model": {
+    "slope": 1.6859705152169633,
+    "val_r2": -0.13340341509357967,
+    "beats_baseline_on_val": false,
+    "held_out_test_r2": null,
+    "train_magnitude_correlation_loose_window": {
+      "rho": 0.023915602485609255,
+      "p": 0.019940280684698712
+    },
+    "train_magnitude_correlation_tight_window": {
+      "rho": -0.03989478907990049,
+      "p": 0.00010293937467506471
+    },
+    "conclusion": "Tight window does not beat a flat baseline on val either -- window misalignment does not appear to be the root cause."
+  },
+  "liquidity_interaction_model": {
+    "form": "y_logit_24h = b1*stock_log_return + b2*stock_log_return*log1p(volume_24h_usdc)",
+    "coefficients": [
+      3.3983116904475152,
+      -0.33494603025978237
+    ],
+    "val_r2": -0.1531345490481879,
+    "beats_baseline_on_val": false,
+    "held_out_test_r2": null,
+    "conclusion": "Liquidity interaction does not beat a flat baseline on val -- Polymarket's own liquidity does not explain the instability either."
+  },
+  "combined_tight_window_and_liquidity": {
+    "form": "y_logit_24h = b1*stock_log_return_tight + b2*stock_log_return_tight*log1p(volume_24h_usdc)",
+    "coefficients": [
+      2.983528299669638,
+      -0.4127186924286829
+    ],
+    "val_r2": -0.11910155487217855,
+    "beats_baseline_on_val": false,
+    "held_out_test_r2": null
+  },
+  "multiple_testing_note": "3 new forms tested here (tight window, liquidity interaction, combined), on top of 7 from scripts 24-26 -- running total 10 forms compared. Any held_out_test_r2 reported above beating a flat baseline should be read against this count, per Harvey, Liu & Zhu (2016)."
+}
