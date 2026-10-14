@@ -141,7 +141,7 @@ def part_a_main_benchmark(stock_lookup: dict, universe_df: pd.DataFrame) -> dict
 
     df = pd.read_parquet(
         SHOCK_PATH,
-        columns=["market_id", "category", "split", "canonical_ts", "y_logit_24h",
+        columns=["article_id", "market_id", "category", "split", "canonical_ts", "y_logit_24h",
                  "y_logit_24h_ladder", "valid_24h"],
     )
     df = df[df["valid_24h"] == True].copy()
@@ -151,6 +151,18 @@ def part_a_main_benchmark(stock_lookup: dict, universe_df: pd.DataFrame) -> dict
     df["company_id"] = df["market_id"].map(mkt_to_cid)
     df = df.dropna(subset=["company_id", "canonical_ts", "y_logit_24h"])
     df["canonical_ts"] = pd.to_datetime(df["canonical_ts"], unit="s", utc=True).dt.tz_localize(None)
+
+    # Pre-event Polymarket probability (p0): needed for a price-level/boundary-
+    # compression interaction term (Snowberg & Wolfers 2010 favorite-longshot
+    # bias; Wolfers & Zitzewitz 2004) -- only lives in tuples.parquet, joined
+    # here by (article_id, market_id).
+    if TUPLES_PATH.exists():
+        price_df = pd.read_parquet(TUPLES_PATH, columns=["article_id", "market_id", "price_at_article"])
+        price_df["market_id"] = price_df["market_id"].astype(str)
+        price_df = price_df.drop_duplicates(subset=["article_id", "market_id"])
+        df = df.merge(price_df, on=["article_id", "market_id"], how="left")
+    else:
+        df["price_at_article"] = np.nan
 
     rows = []
     for _, row in df.iterrows():
@@ -166,6 +178,7 @@ def part_a_main_benchmark(stock_lookup: dict, universe_df: pd.DataFrame) -> dict
             "y_logit_24h": row["y_logit_24h"],
             "y_logit_24h_ladder": row["y_logit_24h_ladder"],
             "stock_log_return": ret,
+            "price_at_article": row.get("price_at_article"),
         })
 
     joined = pd.DataFrame(rows)
