@@ -155,14 +155,31 @@ def part_a_main_benchmark(stock_lookup: dict, universe_df: pd.DataFrame) -> dict
     # Pre-event Polymarket probability (p0): needed for a price-level/boundary-
     # compression interaction term (Snowberg & Wolfers 2010 favorite-longshot
     # bias; Wolfers & Zitzewitz 2004) -- only lives in tuples.parquet, joined
-    # here by (article_id, market_id).
+    # here by (article_id, market_id). tuples.parquet also carries group_id
+    # for the same (article_id, market_id) pair, which is the join key
+    # matching_ablation.parquet needs -- pulled here too so script 26 can use
+    # Thread 1's own match-quality score (embedding_score) as a moderator of
+    # the stock-reaction relationship: a signal no outside literature could
+    # suggest, since it's unique to this project's matching pipeline.
     if TUPLES_PATH.exists():
-        price_df = pd.read_parquet(TUPLES_PATH, columns=["article_id", "market_id", "price_at_article"])
+        price_df = pd.read_parquet(
+            TUPLES_PATH, columns=["article_id", "market_id", "group_id", "price_at_article"]
+        )
         price_df["market_id"] = price_df["market_id"].astype(str)
         price_df = price_df.drop_duplicates(subset=["article_id", "market_id"])
         df = df.merge(price_df, on=["article_id", "market_id"], how="left")
     else:
         df["price_at_article"] = np.nan
+        df["group_id"] = np.nan
+
+    if MATCHING_ABLATION_PATH.exists():
+        scores_df = pd.read_parquet(
+            MATCHING_ABLATION_PATH, columns=["article_id", "group_id", "embedding_score", "joint_score"]
+        ).drop_duplicates(subset=["article_id", "group_id"])
+        df = df.merge(scores_df, on=["article_id", "group_id"], how="left")
+    else:
+        df["embedding_score"] = np.nan
+        df["joint_score"] = np.nan
 
     rows = []
     for _, row in df.iterrows():
@@ -179,6 +196,8 @@ def part_a_main_benchmark(stock_lookup: dict, universe_df: pd.DataFrame) -> dict
             "y_logit_24h_ladder": row["y_logit_24h_ladder"],
             "stock_log_return": ret,
             "price_at_article": row.get("price_at_article"),
+            "embedding_score": row.get("embedding_score"),
+            "joint_score": row.get("joint_score"),
         })
 
     joined = pd.DataFrame(rows)
