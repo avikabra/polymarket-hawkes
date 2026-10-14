@@ -150,7 +150,7 @@ def part_a_main_benchmark(stock_lookup: dict, universe_df: pd.DataFrame) -> dict
     mkt_to_cid = universe_df.set_index(universe_df["market_id"].astype(str))["company_id"]
     df["company_id"] = df["market_id"].map(mkt_to_cid)
     df = df.dropna(subset=["company_id", "canonical_ts", "y_logit_24h"])
-    df["canonical_ts"] = pd.to_datetime(df["canonical_ts"], utc=True).dt.tz_localize(None)
+    df["canonical_ts"] = pd.to_datetime(df["canonical_ts"], unit="s", utc=True).dt.tz_localize(None)
 
     rows = []
     for _, row in df.iterrows():
@@ -227,7 +227,7 @@ def part_b_thread1_external_validation(stock_lookup: dict, universe_df: pd.DataF
     scores = scores.merge(groups, on="group_id", how="left")
     scores["company_id"] = scores["company_name"].map(name_to_cid)
     scores = scores.dropna(subset=["canonical_ts", "company_id"])
-    scores["canonical_ts"] = pd.to_datetime(scores["canonical_ts"], utc=True).dt.tz_localize(None)
+    scores["canonical_ts"] = pd.to_datetime(scores["canonical_ts"], unit="s", utc=True).dt.tz_localize(None)
 
     rows = []
     for _, row in scores.iterrows():
@@ -280,7 +280,7 @@ def part_c_thread2_external_validation(stock_lookup: dict, universe_df: pd.DataF
     mkt_to_cid = universe_df.set_index(universe_df["market_id"].astype(str))["company_id"]
     df["company_id"] = df["market_id"].map(mkt_to_cid)
     df = df.dropna(subset=["company_id", "canonical_ts", "y_logit_24h", "y_logit_24h_ladder"])
-    df["canonical_ts"] = pd.to_datetime(df["canonical_ts"], utc=True).dt.tz_localize(None)
+    df["canonical_ts"] = pd.to_datetime(df["canonical_ts"], unit="s", utc=True).dt.tz_localize(None)
 
     rows = []
     for _, row in df.iterrows():
