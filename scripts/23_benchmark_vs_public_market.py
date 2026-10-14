@@ -193,7 +193,8 @@ def part_a_main_benchmark(stock_lookup: dict, universe_df: pd.DataFrame) -> dict
     if TUPLES_PATH.exists():
         price_df = pd.read_parquet(
             TUPLES_PATH,
-            columns=["article_id", "market_id", "group_id", "price_at_article", "volume_24h_usdc"],
+            columns=["article_id", "market_id", "group_id", "price_at_article", "volume_24h_usdc",
+                     "strike_price", "strike_direction", "time_to_resolution_days"],
         )
         price_df["market_id"] = price_df["market_id"].astype(str)
         price_df = price_df.drop_duplicates(subset=["article_id", "market_id"])
@@ -202,6 +203,9 @@ def part_a_main_benchmark(stock_lookup: dict, universe_df: pd.DataFrame) -> dict
         df["price_at_article"] = np.nan
         df["group_id"] = np.nan
         df["volume_24h_usdc"] = np.nan
+        df["strike_price"] = np.nan
+        df["strike_direction"] = np.nan
+        df["time_to_resolution_days"] = np.nan
 
     if MATCHING_ABLATION_PATH.exists():
         scores_df = pd.read_parquet(
@@ -233,6 +237,9 @@ def part_a_main_benchmark(stock_lookup: dict, universe_df: pd.DataFrame) -> dict
             "joint_score": row.get("joint_score"),
             "canonical_ts": row["canonical_ts"],
             "volume_24h_usdc": row.get("volume_24h_usdc"),
+            "strike_price": row.get("strike_price"),
+            "strike_direction": row.get("strike_direction"),
+            "time_to_resolution_days": row.get("time_to_resolution_days"),
         })
 
     joined = pd.DataFrame(rows)
