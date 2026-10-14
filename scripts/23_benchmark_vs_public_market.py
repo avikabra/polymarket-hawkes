@@ -162,7 +162,7 @@ def part_a_main_benchmark(stock_lookup: dict, universe_df: pd.DataFrame) -> dict
         if ret is None:
             continue
         rows.append({
-            "company_id": cid, "category": row["category"],
+            "company_id": cid, "category": row["category"], "split": row["split"],
             "y_logit_24h": row["y_logit_24h"],
             "y_logit_24h_ladder": row["y_logit_24h_ladder"],
             "stock_log_return": ret,

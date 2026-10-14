@@ -1,0 +1,215 @@
+{
+  "part_a_main_benchmark": {
+    "status": "ok",
+    "n_valid_24h_rows": 17194,
+    "n_joined_to_real_stock_data": 10905,
+    "n_companies_with_stock_data": 78,
+    "signed_correlation_raw_target": {
+      "n": 10905,
+      "spearman_rho": 0.11885185226804451,
+      "spearman_p": 1.3286760656251616e-35,
+      "pearson_r": 0.10271179001725814,
+      "pearson_p": 5.730031886803703e-27,
+      "degenerate": false
+    },
+    "magnitude_correlation_raw_target": {
+      "n": 10905,
+      "spearman_rho": 0.01525219249523514,
+      "spearman_p": 0.111238532710025,
+      "pearson_r": 0.008346982508403242,
+      "pearson_p": 0.38344536514363886,
+      "degenerate": false
+    },
+    "signed_correlation_ladder_target": {
+      "n": 10905,
+      "spearman_rho": 0.1139103469326714,
+      "spearman_p": 7.983268193827209e-33,
+      "pearson_r": 0.10284445755144492,
+      "pearson_p": 4.924381653034121e-27,
+      "degenerate": false
+    },
+    "material_move_table": {
+      "quantile_used": 0.75,
+      "poly_threshold_abs_log_odds": 0.4952049209075242,
+      "stock_threshold_abs_log_return": 0.037920339151154676,
+      "both_moved": 816,
+      "poly_moved_stock_didnt": 1912,
+      "stock_moved_poly_didnt": 1911,
+      "neither_moved": 6266,
+      "n": 10905,
+      "pct_both_moved": 0.07482806052269601,
+      "pct_poly_moved_given_stock_moved": 0.2992299229922992
+    },
+    "ols_poly_on_stock": {
+      "slope": 2.2079240044596045,
+      "intercept": -0.09122184687066914,
+      "r2": 0.010549711808549134
+    },
+    "per_category": {
+      "corporate_event": {
+        "n": 6238,
+        "magnitude_correlation": {
+          "n": 6238,
+          "spearman_rho": -0.07700395775671341,
+          "spearman_p": 1.1314034576899198e-09,
+          "pearson_r": 0.0012085478946192397,
+          "pearson_p": 0.9239707150932446,
+          "degenerate": false
+        }
+      },
+      "price_ladder": {
+        "n": 4626,
+        "magnitude_correlation": {
+          "n": 4626,
+          "spearman_rho": 0.14160109850226948,
+          "spearman_p": 3.7707882359534286e-22,
+          "pearson_r": 0.028077145911093317,
+          "pearson_p": 0.056195157075348535,
+          "degenerate": false
+        }
+      },
+      "revenue_ladder": {
+        "n": 34,
+        "magnitude_correlation": {
+          "n": 34,
+          "spearman_rho": -0.04078001041987764,
+          "spearman_p": 0.8188789045878432,
+          "pearson_r": -0.2332740058760514,
+          "pearson_p": 0.18426531179335065,
+          "degenerate": false
+        }
+      },
+      "valuation_ladder": {
+        "n": 7,
+        "magnitude_correlation": {
+          "n": 7,
+          "spearman_rho": null,
+          "spearman_p": null,
+          "pearson_r": null,
+          "pearson_p": null,
+          "degenerate": true
+        }
+      }
+    }
+  },
+  "part_b_thread1_external_validation": {
+    "status": "ok",
+    "n_scored_pairs": 26500,
+    "n_joined_to_real_stock_data": 16220,
+    "embedding_score_vs_real_stock_reaction": {
+      "n": 16220,
+      "spearman_rho": 0.0917589860080713,
+      "spearman_p": 1.1324177738719368e-31,
+      "pearson_r": 0.1293243336578715,
+      "pearson_p": 1.9320721654163613e-61,
+      "degenerate": false
+    },
+    "joint_score_vs_real_stock_reaction": {
+      "n": 16220,
+      "spearman_rho": 0.028701657342226614,
+      "spearman_p": 0.0002563309371617327,
+      "pearson_r": 0.03274453771855207,
+      "pearson_p": 3.031752061741124e-05,
+      "degenerate": false
+    },
+    "note": "Compare to the Polymarket-internal validation already reported: joint_score vs Polymarket's OWN |y_logit_24h| was rho=0.509. This is the same joint_score against an external benchmark instead."
+  },
+  "part_c_thread2_external_validation": {
+    "status": "ok",
+    "n_joined": 10905,
+    "overall_raw_vs_stock": {
+      "n": 10905,
+      "spearman_rho": 0.11885185226804451,
+      "spearman_p": 1.3286760656251616e-35,
+      "pearson_r": 0.10271179001725814,
+      "pearson_p": 5.730031886803703e-27,
+      "degenerate": false
+    },
+    "overall_ladder_vs_stock": {
+      "n": 10905,
+      "spearman_rho": 0.1139103469326714,
+      "spearman_p": 7.983268193827209e-33,
+      "pearson_r": 0.10284445755144492,
+      "pearson_p": 4.924381653034121e-27,
+      "degenerate": false
+    },
+    "by_category": {
+      "corporate_event": {
+        "n": 6238,
+        "raw_vs_stock": {
+          "n": 6238,
+          "spearman_rho": 0.09739903075470224,
+          "spearman_p": 1.2634387077818e-14,
+          "pearson_r": 0.08996308215672502,
+          "pearson_p": 1.0919626809568348e-12,
+          "degenerate": false
+        },
+        "ladder_vs_stock": {
+          "n": 6238,
+          "spearman_rho": 0.09705210103518484,
+          "spearman_p": 1.567753661432841e-14,
+          "pearson_r": 0.09031429851689142,
+          "pearson_p": 8.915294975564277e-13,
+          "degenerate": false
+        }
+      },
+      "price_ladder": {
+        "n": 4626,
+        "raw_vs_stock": {
+          "n": 4626,
+          "spearman_rho": 0.15982899450212895,
+          "spearman_p": 7.571460660543514e-28,
+          "pearson_r": 0.12769237392906924,
+          "pearson_p": 2.823551609878537e-18,
+          "degenerate": false
+        },
+        "ladder_vs_stock": {
+          "n": 4626,
+          "spearman_rho": 0.16794858988904543,
+          "spearman_p": 1.2938475867263457e-30,
+          "pearson_r": 0.13000975794017014,
+          "pearson_p": 6.814204484040691e-19,
+          "degenerate": false
+        }
+      },
+      "revenue_ladder": {
+        "n": 34,
+        "raw_vs_stock": {
+          "n": 34,
+          "spearman_rho": 0.1988223854323217,
+          "spearman_p": 0.25963284910150797,
+          "pearson_r": 0.21414468925797775,
+          "pearson_p": 0.2239351919976512,
+          "degenerate": false
+        },
+        "ladder_vs_stock": {
+          "n": 34,
+          "spearman_rho": 0.15552298459255354,
+          "spearman_p": 0.3797871755216038,
+          "pearson_r": 0.08007425526876687,
+          "pearson_p": 0.6525887262711669,
+          "degenerate": false
+        }
+      },
+      "valuation_ladder": {
+        "n": 7,
+        "raw_vs_stock": {
+          "n": 7,
+          "spearman_rho": null,
+          "spearman_p": null,
+          "pearson_r": null,
+          "pearson_p": null,
+          "degenerate": true
+        },
+        "ladder_vs_stock": {
+          "n": 7,
+          "spearman_rho": null,
+          "spearman_p": null,
+          "pearson_r": null,
+          "pearson_p": null,
+          "degenerate": true
+        }
+      }
+    }
+  }
+}
