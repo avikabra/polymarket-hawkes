@@ -134,7 +134,7 @@ D is a known constant (Birnbaum 1968), not fit to our data: the slope a friction
 | Backtest vs. 5,000 random permutations | 100th percentile |
 | Bonferroni-corrected across 23 models tried | p=0.0044 |
 
-Mean P&L of +0.042 log-odds per trade, Sharpe ratio 14.3 (annualized). Keeps 98%+ of that profit under realistic trading costs (10-40bps), concentrated in a few large moves rather than spread evenly. Spans 16 companies, including 4 banks absent from training.
+Mean P&L of +0.042 log-odds per trade, Sharpe ratio 0.245 per trade. Keeps 98%+ of that profit under realistic trading costs (10-40bps), concentrated in a few large moves rather than spread evenly. Spans 16 companies, including 4 banks absent from training.
 
 ---
 
