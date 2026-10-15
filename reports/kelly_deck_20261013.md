@@ -3,10 +3,10 @@ marp: true
 theme: default
 paginate: true
 size: 16:9
+math: katex
 ---
 
 # News Shocks in Prediction Markets
-### Real results, 2026-10-14
 
 Avi Kabra
 
@@ -32,9 +32,12 @@ Everything that follows answers this question directly.
 
 **Matching** picks the right article for a contract, combining text similarity and trading-volume spikes:
 
-match_quality = w1 &middot; logit(cosine similarity) + w2 &middot; z(volume spike), then sigmoid
+$$\text{match\_quality} = w_1 \cdot \text{logit}(\text{cosine similarity}) + w_2 \cdot z(\text{volume spike})$$
+$$\text{match\_confidence} = \text{sigmoid}(\text{match\_quality})$$
 
-**Consistency** forces a company's related contracts (above $150, $160, $170) to react in the same direction, weighted by volume, via isotonic regression (PAVA).
+**Consistency** forces a company's related contracts (above $150, $160, $170) to react in the same direction, weighted by volume, via isotonic regression (PAVA):
+
+$$\min \sum_i v_i (y_i - r_i)^2 \quad \text{subject to} \quad y_1 \le y_2 \le \dots \le y_n$$
 
 ---
 
@@ -50,7 +53,7 @@ What's new: applying both combinations to this specific problem, matching news t
 
 ## Result 1: contracts do react to news, with one caveat found since
 
-| Method | Spearman &rho; vs. actual price move | n |
+| Method | Spearman &rho; | n |
 |---|---|---|
 | Matching score (text + volume) | **0.509** | 14,717 |
 | Text similarity alone | 0.233 | 14,717 |
@@ -63,7 +66,7 @@ This is half the answer to our question: a company's news and its market's tradi
 
 ## Result 2: the consistency correction makes predictions worse
 
-| Category | R&sup2;, raw reaction | R&sup2;, after correction |
+| Category | R&sup2; (raw) | R&sup2; (corrected) |
 |---|---|---|
 | Price-target | 0.084 | 0.073 |
 | Valuation | 0.746 | 0.363 |
@@ -74,13 +77,13 @@ We expected this to help: related contracts should price consistently, by no-arb
 
 ## Result 3: models land close to guessing the average
 
-| Category | Best model | R&sup2; | n (test) |
-|---|---|---|---|
-| All (pooled) | Linear | &minus;0.010 | 5,151 |
-| Corporate event | Linear | &minus;0.021 | 3,157 |
-| Price-target | LSTM | **+0.010** | 598 |
-| Revenue-target | TCN | &minus;0.016 | 9 |
-| Valuation | Linear only | &minus;0.255 | small |
+| Category | Best model | R&sup2; |
+|---|---|---|
+| All (pooled, n=5,151) | Linear | &minus;0.010 |
+| Corporate event (n=3,157) | Linear | &minus;0.021 |
+| Price-target (n=598) | LSTM | **+0.010** |
+| Revenue-target (n=9) | TCN | &minus;0.016 |
+| Valuation (small n) | Linear only | &minus;0.255 |
 
 This is the other half of the answer. If Polymarket prices already reflect public news quickly, this is exactly the pattern we'd expect: a reaction (Result 1) whose size depends on information beyond the article itself.
 
@@ -88,39 +91,37 @@ This is the other half of the answer. If Polymarket prices already reflect publi
 
 ## Result 4: one of four pre-registered predictions holds up
 
-| Prediction | Tests whether... | Result |
-|---|---|---|
-| Richer embeddings beat simpler ones | text representation matters | Not supported |
-| Best model differs by category | architecture choice matters | Not supported |
-| Quantitative articles beat high-attention ones | article type matters | Supported (n=28) |
-| Best ladder category beats corporate events | ladder structure adds signal | Not supported |
-
-Tested with bootstrap resampling clustered by real-world event, so duplicate coverage of one story isn't counted as independent evidence.
+| Prediction | Result |
+|---|---|
+| Richer embeddings beat simpler ones | Not supported |
+| Best model differs by category | Not supported |
+| Quantitative articles beat high-attention ones | Supported (n=28) |
+| Best ladder category beats corporate events | Not supported |
 
 ---
 
 ## Result 5: Polymarket tracks the real stock's direction
 
-| Test | Spearman &rho; | 95% CI (company-clustered) |
+| Test | Spearman &rho; | 95% CI |
 |---|---|---|
 | Direction vs. direction | **0.119** | [0.047, 0.188] |
 | Size vs. size | 0.015 | includes zero |
 
-A company can show a huge real-world move alongside a tiny Polymarket reaction, or the reverse.
+CI from a company-clustered bootstrap. A company can show a huge real-world move alongside a tiny Polymarket reaction, or the reverse.
 
 ---
 
 ## Result 6: a tradeable signal, for price-target contracts
 
-`reaction = efficiency_ratio &middot; theoretical_sensitivity &middot; (stock_return / stock_volatility) + baseline_drift`
+$$\text{reaction} = \kappa \cdot D \cdot \frac{\text{stock return}}{\text{stock volatility}} + \delta$$
 
-| Term | Value | What it is |
-|---|---|---|
-| theoretical_sensitivity | 1.702 | frictionless digital-option slope (Birnbaum 1968), not fit to our data |
-| efficiency_ratio | 0.093 | share of that sensitivity these contracts realize |
-| baseline_drift | &minus;0.184 | 24h drift with no stock move (favorite-longshot correction, Snowberg & Wolfers 2010) |
+| Term | Value |
+|---|---|
+| D (theoretical sensitivity) | 1.702 |
+| &kappa; (efficiency ratio) | 0.093 |
+| &delta; (baseline drift) | &minus;0.184 |
 
-These contracts move at about 9% of the rate a frictionless market would.
+D is a known constant (Birnbaum 1968), not fit to our data: the slope a frictionless digital option would have. These contracts move at about 9% of that rate. &delta; is the 24h drift with no stock move, consistent with favorite-longshot overpricing correction (Snowberg & Wolfers 2010).
 
 ---
 
