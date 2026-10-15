@@ -134,7 +134,7 @@ D is a known constant (Birnbaum 1968), not fit to our data: the slope a friction
 | Backtest vs. 5,000 random permutations | 100th percentile |
 | Bonferroni-corrected across 23 models tried | p=0.0044 |
 
-Keeps 98%+ of its profit under realistic trading costs (10-40bps). Spans 16 companies, including 4 banks absent from training.
+Mean P&L of +0.042 log-odds per trade, Sharpe ratio 14.3 (annualized). Keeps 98%+ of that profit under realistic trading costs (10-40bps), concentrated in a few large moves rather than spread evenly. Spans 16 companies, including 4 banks absent from training.
 
 ---
 
@@ -148,9 +148,9 @@ Keeps 98%+ of its profit under realistic trading costs (10-40bps). Spans 16 comp
 
 ## Scoping decisions
 
-- **market_cap_ladder** (4 markets): dropped, too small to mean anything
-- **valuation_ladder** (110 markets): kept, flagged as below our 200-market floor, everything else about it clears comfortably
-- **revenue_ladder**: given its own data split so it could be trained at all, rather than excluded
+- Market-cap contracts (4 markets): dropped, too few to draw a conclusion from
+- Valuation contracts (110 markets): kept, below our 200-contract minimum sample size, but every other check passes
+- Revenue contracts: given a separate data split so training was possible at all, instead of being excluded
 
 ---
 
@@ -163,9 +163,8 @@ Keeps 98%+ of its profit under realistic trading costs (10-40bps). Spans 16 comp
 
 ---
 
-## Recommendation
+## Next steps
 
-- Lead the thesis with the matching result (Result 1) and the price-target trading signal (Result 6): the two clean, adversarially-tested contributions
-- Present the consistency correction, the model comparison, and the external-benchmark proportionality check as negative or mixed results
-- Keep the 200-market floor as the rule, with `valuation_ladder` as a documented, explicit exception
-- Measuring Polymarket's actual historical bid-ask spread would sharpen Result 6's cost estimate — the highest-leverage next step
+- Measure Polymarket's actual historical bid-ask spread, to replace Result 6's cost estimate (currently from published research) with a real one
+- Decide together how much weight Result 6 should carry given its narrow base (16 companies)
+- Revisit the valuation-contract sample-size exception if more data becomes available
