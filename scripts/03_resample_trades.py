@@ -26,11 +26,12 @@ def main() -> None:
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--min-volume", type=float, default=0.0,
-                    help="skip markets with total_volume_usdc below this (bounds bar volume/disk)")
+                    help="skip markets with volume_usd below this (bounds bar volume/disk)")
     args = ap.parse_args()
 
     paths = _load_yaml("config/paths.yaml")
-    universe = pd.read_parquet(paths["polymarket"]["universe"]).set_index("market_id")
+    # Index by conditionId (Trade.market_id); columns mapped to the old universe names below.
+    universe = pd.read_parquet(paths["polymarket"]["markets"]).set_index("condition_id")
 
     trades_root = Path(paths["polymarket"]["trades"])
     bars_root = Path(paths["polymarket"]["bars_1min"])
@@ -38,7 +39,7 @@ def main() -> None:
     trade_files = sorted(trades_root.rglob("part-*.parquet"))
     if not trade_files:
         raise RuntimeError(
-            f"no trade parquet files under {trades_root} — run script 02 first"
+            f"no trade parquet files under {trades_root} — run scripts/ingest/03_pull_trades.py first"
         )
     total_bars = 0
     markets_processed = 0
@@ -47,16 +48,16 @@ def main() -> None:
         market_id = parquet_file.stem.removeprefix("part-")
 
         if market_id not in universe.index:
-            log.warning("market not in universe", extra={"market_id": market_id})
+            log.warning("market not in markets.parquet", extra={"market_id": market_id})
             continue
 
         row = universe.loc[market_id]
-        if float(row.get("total_volume_usdc", 0) or 0) < args.min_volume:
+        if float(row.get("volume_usd", 0) or 0) < args.min_volume:
             continue
-        market_open_ts = int(pd.Timestamp(row["created_at"]).timestamp())
-        market_close_ts = int(pd.Timestamp(row["end_at"]).timestamp())
-        contract_family = row["contract_family"]  # W7-9: partition key was `category`
-        end_dt = pd.Timestamp(row["end_at"])
+        market_open_ts = int(pd.Timestamp(row["start_ts_utc"]).timestamp())
+        market_close_ts = int(pd.Timestamp(row["end_ts_utc"]).timestamp())
+        contract_family = row["contract_type"]
+        end_dt = pd.Timestamp(row["end_ts_utc"])
         year, month = end_dt.year, end_dt.month
 
         df = pd.read_parquet(parquet_file)
@@ -66,7 +67,7 @@ def main() -> None:
 
         out_path = (
             bars_root
-            / f"contract_family={contract_family}/year={year}/month={month:02d}/part-{market_id}.parquet"
+            / f"contract_type={contract_family}/year={year}/month={month:02d}/part-{market_id}.parquet"
         )
         out_path.parent.mkdir(parents=True, exist_ok=True)
         pq.write_table(pa.Table.from_pandas(pd.DataFrame(bars)), out_path)

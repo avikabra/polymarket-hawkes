@@ -77,3 +77,28 @@ class YahooClient:
         self._cache.set(cache_key, buf.getvalue())
         self._log.info("yahoo_pulled", ticker=ticker, rows=len(df))
         return df
+
+    def get_splits(self, ticker: str, start: datetime, end: datetime) -> pd.DataFrame:
+        """Stock splits in [start, end) as columns date (YYYY-MM-DD, first trading day at the new
+        price) and ratio (new shares per old share). It reads the "Stock Splits" series of the
+        same Yahoo chart response (events=split) that yfinance requests.
+
+        Unlike get_daily_closes, a failed fetch raises, so no company is silently treated as
+        having no split. An empty frame means Yahoo returned prices and no split, or no data.
+        """
+        cache_key = f"yahoo:splits:{ticker}:{start.date()}:{end.date()}"
+        cached = self._cache.get(cache_key, max_age_seconds=7 * 24 * 3600)
+        if cached is not None:
+            return pd.read_parquet(io.BytesIO(cached))
+
+        raw = self._fetch(ticker, start, end)
+        if raw.empty:
+            self._log.warning("yahoo_no_data", ticker=ticker)
+            return pd.DataFrame(columns=["date", "ratio"])
+        sp = raw["Stock Splits"].astype(float)
+        sp = sp[sp > 0]
+        df = pd.DataFrame({"date": sp.index.tz_localize(None).normalize().astype(str), "ratio": sp.to_numpy()})
+        buf = io.BytesIO()
+        df.to_parquet(buf)
+        self._cache.set(cache_key, buf.getvalue())
+        return df

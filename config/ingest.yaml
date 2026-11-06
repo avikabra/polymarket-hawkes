@@ -1,0 +1,32 @@
+# Article ingestion settings (scripts/ingest/04 to 07)
+contact: "https://github.com/avikabra/polymarket-hawkes"  # project URL for the Wikimedia User-Agent (scripts 01, 06); blank = scripts exit
+gdelt:
+  sample_per_company_month: 50  # step 14, training period only
+  training_days: [1, 8, 15, 22] # days of each month scanned in the training period; the sample is drawn from these
+body_fetch:
+  contact: ""               # project contact URL or address sent in the HTTP "From" header; empty = omit
+  global_concurrency: 24
+  per_domain_concurrency: 1  # per task; 4 tasks => at most 4 per domain
+  timeout_s: 20
+  chunk_size: 500           # URLs per output shard (also the resume granularity)
+  parse_workers: 3          # per task: isolated HTML-parsing processes (a native crash kills one worker)
+  parse_timeout_s: 30       # per page; a hung parse is killed and recorded as parse_timeout
+  max_html_bytes: 5000000   # larger pages are not parsed (status html_too_large)
+embed:
+  model: "Qwen/Qwen3-Embedding-4B"
+  max_tokens_article: 8192
+  max_tokens_company: 32768   # the model's full context; longer Wikipedia pages are truncated
+  batch_size: 8
+llm_map:                    # scripts/ingest/08_map_companies.py
+  model: "Qwen/Qwen3.5-4B"
+  max_input_tokens: 4096  # p95 of real articles is 3,036 tokens; longer ones keep their start and are flagged cut
+  # no max_output_tokens: computed from the schema as the token length of an answer with all 61 ids
+  chunk_size: 2000          # articles per output part (also the resume granularity)
+  temperature: 0
+  seed: 0                   # fixes the article order for --limit and the sampler seed
+  prompt_version: "v2"      # bump when the system prompt or schema changes; results go in company_map/<prompt_version>/ and a new one re-maps everything
+hand_check:                 # scripts/ingest/09_hand_check.py
+  n_per_group: 100          # 100 articles with a company + 100 with none
+  pass_bar: 0.98            # precision and recall must both reach it (set before seeing results)
+  seed: 0
+  bootstrap_reps: 10000

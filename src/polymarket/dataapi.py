@@ -1,18 +1,18 @@
-"""Polymarket Data-API trade client — replaces the deprecated Goldsky subgraph.
+"""Polymarket Data-API v2 trade client — replaces the deprecated Goldsky subgraph (and retired v1).
 
-Endpoint: GET https://data-api.polymarket.com/trades
-  market=<conditionId>  takerOnly=true  limit<=10000  offset<=10000 (400 past cap)
-  start/end = epoch-second window bounds.
+Endpoint: GET https://data-api.polymarket.com/v2/trades
+  condition=<conditionId>  taker_only=true  limit<=1000 (first page only)  cursor=<opaque>
+  Response: {"data": [Trade...], "pagination": {"has_more", "next_cursor"|null, ...}}.
 
-Completeness strategy: pure time-bisection. We never page past offset 0 — instead,
-if a [start,end) window returns a full page (>= limit), we split the window and recurse.
-This sidesteps the 10,000-offset cap entirely (the cap is loud — HTTP 400 — but with
-offset fixed at 0 we never reach it) and is verifiably complete: sum(size) over
-takerOnly=true trades reconciles to Gamma's total_volume_usdc (see
-reports/trade_source_decision.md).
+Completeness strategy: cursor pagination. The v2 condition shape ignores start/end (fixed
+three-year lookback), so one market is walked page by page via pagination.next_cursor
+(identical filters re-sent every page) and the [start_ts, end_ts) window is applied
+client-side. Rows are deduplicated, so row order does not matter. v2 has no offset
+(HTTP 400 if sent, even 0).
 
-takerOnly=true yields exactly one row per trade (taker perspective); takerOnly=false
-double-counts (maker+taker). `price` is the traded asset's own price in [0,1].
+taker_only=true yields exactly one row per trade (taker perspective); false double-counts
+(maker+taker). `price` is the traded token's own price in [0,1]; `size` is shares.
+Fields are snake_case: token_id (was asset), transaction_hash (was transactionHash).
 """
 import asyncio
 import hashlib
@@ -26,17 +26,18 @@ from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponen
 from src.schemas import Trade
 from src.utils import DiskCache, get_logger
 
-_BASE = "https://data-api.polymarket.com/trades"
-_MAX_LIMIT = 10_000
+_BASE = "https://data-api.polymarket.com/v2/trades"
+_PAGE_LIMIT = 1000
+# v2 drops fills below filter_amount tokens (default 0.01; 0 means the default), so pass a
+# tiny positive value to keep dust fills that v1 returned.
+_MIN_FILL = 1e-9
 _RETRY_STATUS = {408, 429, 500, 502, 503, 504}
-# Statuses that mean "the window was too heavy" — split it rather than give up.
-_TOO_HEAVY_STATUS = {408, 504, 502, 503}
 
 
 def _is_retryable(exc: BaseException) -> bool:
     if isinstance(exc, (httpx.ConnectError, httpx.TimeoutException)):
         return True
-    # Retry transient HTTP statuses (rate limit / 5xx); a 400 (offset cap etc.) is fatal.
+    # Retry transient HTTP statuses (rate limit / 5xx); a 400/410 is fatal.
     return (
         isinstance(exc, httpx.HTTPStatusError)
         and exc.response.status_code in _RETRY_STATUS
@@ -55,31 +56,29 @@ class DataApiClient:
         stop=stop_after_attempt(8),  # ~3+ min of backoff absorbs brief DNS/network blips
         reraise=True,
     )
-    async def _request(self, params: dict) -> list[dict]:
+    async def _request(self, params: dict) -> dict:
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.get(_BASE, params=params)
             resp.raise_for_status()  # 4xx/5xx -> HTTPStatusError (retried only if transient)
             return resp.json()
 
-    async def _fetch_window(self, condition_id: str, lo: int, hi: int) -> list[dict]:
-        key = f"dataapi:trades:{condition_id}:{lo}:{hi}"
+    async def _fetch_page(self, condition_id: str, cursor: str | None) -> dict:
+        key = f"dataapi:v2:trades:{condition_id}:{cursor or ''}"
         cached = self._cache.get(key)
         if cached is not None:
             return json.loads(cached)
         params = {
-            "market": condition_id,
-            "takerOnly": "true",
-            "limit": _MAX_LIMIT,
-            "offset": 0,
-            "start": lo,
-            "end": hi,
+            "condition": condition_id,
+            "taker_only": "true",
+            "filter_amount": _MIN_FILL,
+            "limit": _PAGE_LIMIT,
         }
-        page = await self._request(params)
+        if cursor:
+            params["cursor"] = cursor
+        body = await self._request(params)
         await asyncio.sleep(self._req_sleep)  # polite pacing on live (non-cached) calls only
-        # Only cache a window we know is complete (not a full page that will be bisected).
-        if len(page) < _MAX_LIMIT:
-            self._cache.set(key, json.dumps(page).encode())
-        return page
+        self._cache.set(key, json.dumps(body).encode())
+        return body
 
     async def iter_market_fills(
         self, condition_id: str, start_ts: int, end_ts: int
@@ -87,50 +86,20 @@ class DataApiClient:
         """Yield every takerOnly trade for a market's conditionId in [start_ts, end_ts).
 
         Both YES and NO token fills are returned (the Data-API keys on conditionId).
-        Windows that return a full page are bisected until each is complete; a window
-        that cannot be bisected further (1-second) yet still overflows raises loudly.
+        Walks pagination.next_cursor until null; the time window is filtered client-side.
         """
         seen: set[tuple] = set()
-        stack: list[tuple[int, int]] = [(int(start_ts), int(end_ts))]
-        while stack:
-            lo, hi = stack.pop()
-            if hi <= lo:
-                continue
-            try:
-                page = await self._fetch_window(condition_id, lo, hi)
-            except (httpx.TimeoutException, httpx.HTTPStatusError) as exc:
-                # A timeout (or heavy-server status) after retries means the window is
-                # too big to serve — split it so each half is lighter. Only a 1-second
-                # window that still fails is a real error.
-                too_heavy = isinstance(exc, httpx.TimeoutException) or (
-                    isinstance(exc, httpx.HTTPStatusError)
-                    and exc.response.status_code in _TOO_HEAVY_STATUS
-                )
-                if too_heavy and hi - lo > 1:
-                    mid = (lo + hi) // 2
-                    stack.append((mid, hi))
-                    stack.append((lo, mid))
-                    self._log.warning(
-                        "window too heavy, bisecting",
-                        extra={"market": condition_id, "lo": lo, "hi": hi},
-                    )
+        cursor: str | None = None
+        while True:
+            body = await self._fetch_page(condition_id, cursor)
+            for t in body["data"] or []:
+                ts = int(t["timestamp"])
+                if not (start_ts <= ts < end_ts):
                     continue
-                raise
-            if len(page) >= _MAX_LIMIT:
-                if hi - lo <= 1:
-                    raise RuntimeError(
-                        f"market {condition_id}: >= {_MAX_LIMIT} trades within a 1s "
-                        f"window [{lo},{hi}) — cannot page further; source needs revisiting"
-                    )
-                mid = (lo + hi) // 2
-                stack.append((mid, hi))
-                stack.append((lo, mid))
-                continue
-            for t in page:
                 k = (
-                    t.get("transactionHash", ""),
-                    t.get("asset", ""),
-                    int(t["timestamp"]),
+                    t.get("transaction_hash", ""),
+                    t.get("token_id", ""),
+                    ts,
                     str(t["size"]),
                     str(t["price"]),
                 )
@@ -138,6 +107,9 @@ class DataApiClient:
                     continue
                 seen.add(k)
                 yield t
+            cursor = body["pagination"]["next_cursor"]
+            if not cursor:
+                return
 
 
 def normalize_dataapi_fill(raw: dict, market_id: str, yes_token_id: str) -> Trade | None:
@@ -147,7 +119,7 @@ def normalize_dataapi_fill(raw: dict, market_id: str, yes_token_id: str) -> Trad
     are consistent across both tokens of a market. size_usdc = size * price (actual
     USDC paid), matching the Goldsky normalizer's semantics.
     """
-    asset = raw.get("asset", "")
+    asset = raw.get("token_id", "")
     try:
         size = float(raw["size"])
         price = float(raw["price"])
@@ -168,7 +140,7 @@ def normalize_dataapi_fill(raw: dict, market_id: str, yes_token_id: str) -> Trad
         # Buying the NO token is selling YES exposure, and vice versa.
         side = "YES_SELL" if taker_side == "BUY" else "YES_BUY"
 
-    tx = raw.get("transactionHash", "")
+    tx = raw.get("transaction_hash", "")
     # No logIndex in this feed; derive a stable intra-second tiebreaker.
     log_index = int(
         hashlib.sha256(f"{tx}:{asset}:{size}:{price}".encode()).hexdigest()[-8:], 16
@@ -182,6 +154,7 @@ def normalize_dataapi_fill(raw: dict, market_id: str, yes_token_id: str) -> Trad
         price_raw=price_raw,
         log_odds=log_odds,
         size_usdc=size * price,
+        size_shares=size,
         side=side,
         tx_hash=tx,
     )

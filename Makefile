@@ -1,6 +1,6 @@
 PYTHON       := uv run python
 
-.PHONY: all focal audit train evaluate report test smoke clean
+.PHONY: all focal audit train evaluate report test smoke clean ingest-names ingest-contracts ingest-trades ingest-gdelt ingest-articles ingest-wikipedia
 
 all: focal
 
@@ -17,17 +17,28 @@ data/polymarket/trades/_SUCCESS: data/polymarket/universe.parquet
 data/polymarket/bars_1min/_SUCCESS: data/polymarket/trades/_SUCCESS
 	$(PYTHON) scripts/03_resample_trades.py
 
-# ── News corpus ────────────────────────────────────────────────────────────────
+# ── Ingestion, pull_plan sections 1 to 4 (scripts/ingest) ──────────────────────
+# ARGS passes flags through, e.g. make ingest-gdelt ARGS=--execute
 
-data/news/gdelt_gkg/_SUCCESS: data/polymarket/universe.parquet
-	$(PYTHON) scripts/04_pull_gdelt_corpus.py
+ingest-names:
+	$(PYTHON) scripts/ingest/01_company_names.py
 
-data/news/feeds/_SUCCESS: data/polymarket/universe.parquet
-	$(PYTHON) scripts/05_pull_category_feeds.py
+ingest-contracts:
+	$(PYTHON) scripts/ingest/02_pull_contracts.py
 
-# Body text — verified-articles-only (see scripts/09), critical path for analysis embeddings
-data/news/bodies/_SUCCESS: data/matches/_VERIFIED_SUCCESS
-	$(PYTHON) scripts/06_fetch_article_bodies.py --verified-only
+ingest-trades:
+	$(PYTHON) scripts/ingest/03_pull_trades.py
+
+ingest-gdelt:
+	$(PYTHON) scripts/ingest/04_pull_gdelt.py $(ARGS)
+
+ingest-articles:
+	$(PYTHON) scripts/ingest/05_fetch_articles.py $(ARGS)
+
+ingest-wikipedia:
+	$(PYTHON) scripts/ingest/06_pull_wikipedia.py
+
+# steps 19 to 21 run on Bouchet: sbatch scripts/bouchet/ingest_07_embed.sbatch
 
 # ── Matching pipeline (BGE-large only) ────────────────────────────────────────
 # Matching embeddings use title+lede only (no body text) — do NOT depend on body-fetch,
