@@ -19,14 +19,15 @@ embed:
   batch_size: 8
 llm_map:                    # scripts/ingest/08_map_companies.py
   model: "Qwen/Qwen3.5-4B"
-  max_input_tokens: 4096  # p95 of real articles is 3,036 tokens; longer ones keep their start and are flagged cut
-  # no max_output_tokens: computed from the schema as the token length of an answer with all 61 ids
-  chunk_size: 2000          # articles per output part (also the resume granularity)
+  max_input_chars: 2500    # lede + body cut to 2,500 characters, as in the tuning run that set the prompt
+  max_input_tokens: 4096  # user message; p95 of real articles is 3,036 tokens; longer ones keep their start and are flagged cut
+  max_output_tokens: 12     # {"answer": "yes"} or {"answer": "no"}
+  chunk_size: 2000          # pairs per output part (also the resume granularity)
   temperature: 0
-  seed: 0                   # fixes the article order for --limit and the sampler seed
-  prompt_version: "v2"      # bump when the system prompt or schema changes; results go in company_map/<prompt_version>/ and a new one re-maps everything
+  seed: 0                   # fixes the pair sample for --limit and the sampler seed
+  prompt_version: "v3"      # bump when the system prompt, user message or schema changes; results go in company_map/<prompt_version>/ and a new one re-asks every pair
 hand_check:                 # scripts/ingest/09_hand_check.py
-  n_per_group: 100          # 100 articles with a company + 100 with none
+  n_per_group: 100          # 100 articles with a yes answer + 100 with no company (half dropped by the pair filter, half answered no)
   pass_bar: 0.98            # precision and recall must both reach it (set before seeing results)
   seed: 0
   bootstrap_reps: 10000
