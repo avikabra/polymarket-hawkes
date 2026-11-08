@@ -1,7 +1,7 @@
 """Steps 92 to 107: score the test-period portfolios from 14_msrr.py. Run once, after every choice is locked.
 
 Inputs: data/analysis/{portfolio_returns,test_weights,ridge_check}.parquet from 14_msrr.py,
-data/news/reactions.parquet (needs company_id, day, y, y_money, y_stock, dv_pm_24h, flow_small,
+data/news/reactions.parquet (needs company_id, day, y, y_money, y_stock, y_ladder, dv_pm_24h, flow_small,
 flow_large) and the trade files under data/polymarket/trades (size_usdc, for step 103).
 
     uv run python scripts/analysis/15_score.py
@@ -30,7 +30,8 @@ def sharpe(x):
 
 
 UNIT = {"y": "log-odds (step 74)", "y_same": "log-odds (step 74)", "y_big": "log-odds (step 74)",
-        "y_money": "money (step 77)", "y_money_big": "money (step 77)", "y_stock": "stock return (step 78)"}
+        "y_money": "money (step 77)", "y_money_big": "money (step 77)", "y_stock": "stock return (step 78)",
+        "y_ladder": "log price (step 76e)"}
 
 
 def unit(target):
@@ -97,6 +98,8 @@ def main():
     # step 99: y = a + c * (stock return in %), all test company-days
     d = rx[rx["day"] >= TEST_START].dropna(subset=["y", "y_stock"])
     follow = [{"sample": "all", **ols(100 * d["y_stock"], d["y"], d["day"])}]
+    d = rx[rx["day"] >= TEST_START].dropna(subset=["y_ladder", "y_stock"])  # y_ladder on log(1 + y_stock), both log price
+    follow.append({"sample": "y_ladder on log stock return", **ols(np.log1p(d["y_stock"]), d["y_ladder"], d["day"])})
     pd.DataFrame(follow).to_csv(RES / "stock_follow.csv", index=False)
 
     # steps 100 to 102: the pure-news weights (fitted on Polymarket log-odds y) applied to both markets

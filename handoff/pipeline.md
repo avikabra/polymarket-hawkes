@@ -500,9 +500,9 @@ together. These steps read that forecast from all rungs at once, instead of aver
 
 76a. **Ladders.** A ladder is the rungs of one close-ladder group, or the up-barrier rungs or the
      down-barrier rungs of one barrier-ladder group (each direction is its own ladder). A "below"
-     rung is turned into an "above" rung by taking 1 − p. Rungs follow step 75 (open at the midnight
-     after D, at least $1,000 traded through D); a rung that settles inside the 24 hours enters with
-     its last trade before it settled.
+     rung is turned into an "above" rung by taking 1 − p. Rungs follow step 75: open at the midnight
+     after D, at least $1,000 traded through D, and at least one trade in the 24 hours; a rung that
+     settles inside the 24 hours enters with its last trade before it settled.
 76b. **Prices.** At time t, each rung's price is its last trade before t, in log-odds ℓ_i(t)
      (clipped as in step 13). The same rungs are used at both times (midnight M and M + 24 hours),
      so a change in which rungs traded cannot move the result. A ladder needs at least 2 such rungs.
@@ -513,9 +513,10 @@ together. These steps read that forecast from all rungs at once, instead of aver
      s is how spread out the forecast is. The curve keeps the rungs in order by construction:
      P(above $240) ≥ P(above $250), the no-arbitrage condition.
 76d. **Fit.** At each time, fit the line ℓ_i = a − b·ln K_i (or a + b·ln K_i for a down-barrier
-     ladder) by least squares weighted by each rung's dollars traded up to t; then μ = a / b and
-     s = 1 / b. With 2 rungs the line passes through both exactly. If b ≤ 0 (rungs out of order,
-     usually because of stale prices), the ladder has no fit at that time.
+     ladder) by least squares weighted by each rung's dollars traded up to t; then s = 1 / b, and
+     μ = a / b for a close or up-barrier ladder, μ = −a / b for a down-barrier ladder. With 2 rungs the line passes through both exactly. If b ≤ 0 (rungs out of order,
+     usually because of stale prices), or if every rung has the same strike, the ladder has no fit at
+     that time.
 76e. **Ladder reaction.** Δμ = μ(M + 24 hours) − μ(M): the shift of the market's price forecast, in
      log price, the same unit as a stock's log return; Δμ > 0 is good news. Δln s, the change in how
      uncertain the forecast is, is reported separately.

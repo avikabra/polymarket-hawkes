@@ -11,7 +11,7 @@ lam is picked once on the training days by leave-one-out (closed-form hat matrix
 Step 91 check: yhat = X.c by ridge on stacked company-days (re-fitted each test day, no
 intercept), long the top fifth of yhat and short the bottom fifth each day.
 
-Reactions columns used: company_id, day, y, y_money, y_stock (nullable). Optional: y_big,
+Reactions columns used: company_id, day, y, y_money, y_stock, y_ladder (nullable). Optional: y_big,
 y_money_big (contracts with $10,000+ traded) and y_type_<name> (one contract type alone);
 any such column present becomes an extra target (step 96). Targets run for u and E.
 
@@ -36,7 +36,7 @@ OUT = Path("data/analysis")
 TRAIN_END = pd.Timestamp("2026-08-27")   # step 82
 TEST_START = pd.Timestamp("2026-08-28")  # step 83
 TEST_END = pd.Timestamp("2026-10-29")
-MAIN = ["y", "y_money", "y_same", "y_stock"]   # y_same = y on the y_stock company-days (step 97)
+MAIN = ["y", "y_money", "y_same", "y_stock", "y_ladder"]   # y_ladder: log price (step 76f); y_same = y on the y_stock company-days (step 97)
 PREDICTORS = ["u", "E", "Sbeta", "u_frozen"]
 
 

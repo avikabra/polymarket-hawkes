@@ -12,10 +12,18 @@ Output data/news/reactions.parquet, one row per company-day with at least one qu
              trades under / at least $1,000 (steps 104-105)
   y_big, y_money_big   y and y_money over contracts with >= $10,000 traded before M (step 96)
   y_type_<contract_type>   y over the company's contracts of that type (null if none that day)
+  y_ladder   log-price reaction of the company's ladders (steps 76a-76f), weights = ladder dollars on D;
+             null if no ladder fits at both times. dlog_s: the same average of the change in ln s.
+Also data/news/ladder_reactions.parquet, one row per ladder-day: company_id, day, event_id, direction
+(close | up | down), n_rungs, mu0, mu1, s0, s1, dmu, dlog_s, weight.
 M is midnight Eastern after D; the window is [M, M + 24h). A contract counts when it is not a
 closing bucket, has a single direction, is open at M (start <= M < actual end), has >= $1,000 traded
 before M, and has a trade in the window. Weights are each contract's dollars traded on D, the
 Eastern calendar day before M (known at M); a contract with none on D has weight 0.
+Ladder (76a-76e): the counted rungs of one close_ladder event, or of one barrier_ladder event with the
+same direction (above = up, below = down). Close-ladder "below" rungs use l -> -l. At M and M + 24h fit
+l = c + m ln K by least squares weighted by each rung's dollars traded up to that time; b = -m (close, up)
+or m (down) must be > 0, then mu = -c / m and s = 1 / b. Same rungs at both times, at least 2.
 sign = +1 when YES pays if the stock rises or the contract has no direction (earnings, up/down,
 "above"), -1 for "below". Buying the good-news side = YES_BUY when sign = +1, YES_SELL when -1
 (side is already in YES terms, 03). Log-odds only; price_raw is clipped to (0.001, 0.999).
@@ -31,6 +39,20 @@ ET = "America/New_York"
 DAY = 86400
 FLOOR = 1000.0
 BIG = 10000.0
+
+
+LADDERS = ["close_ladder", "barrier_ladder"]
+
+
+def ladder_fit(x: np.ndarray, l: np.ndarray, w: np.ndarray, down: bool):
+    """Step 76d: weighted line l = c + m x, x = ln K. Returns (mu, s) or None when b <= 0."""
+    xm, lm = np.average(x, weights=w), np.average(l, weights=w)
+    sxx = (w * (x - xm) ** 2).sum()
+    if sxx <= 0:
+        return None
+    m = (w * (x - xm) * (l - lm)).sum() / sxx
+    b = m if down else -m
+    return None if b <= 0 else (-(lm - m * xm) / m, 1 / b)
 
 
 def contract_rows(t: pd.DataFrame, sign: int, start: int, end: int, ctype: str) -> pd.DataFrame:
@@ -54,6 +76,7 @@ def contract_rows(t: pd.DataFrame, sign: int, start: int, end: int, ctype: str) 
     return pd.DataFrame({"day": d - pd.Timedelta(days=1), "w": cum[i0] - cum[iD], "dv": cum[i1] - cum[i0],
                          "dl": sign * (lo[i1 - 1] - lo[i0 - 1]), "dp": (p1 - p0) / p0,
                          "fs": cs[i1] - cs[i0], "fl": cl[i1] - cl[i0],
+                         "l0": lo[i0 - 1], "l1": lo[i1 - 1], "c0": cum[i0], "c1": cum[i1],
                          "big": cum[i0] >= BIG, "ctype": ctype})
 
 
@@ -69,7 +92,8 @@ def main() -> None:
         c = mk.loc[t["market_id"].iat[0]]
         r = contract_rows(t, -1 if c["direction"] == "below" else 1,
                           int(c["start_ts_utc"].timestamp()), int(c["end_ts_utc"].timestamp()), c["contract_type"])
-        rows.append(r.assign(company_id=c["company_id"]))
+        rows.append(r.assign(company_id=c["company_id"], event_id=c["event_id"], strike=c["strike_lo"],
+                             direction=c["direction"]))
     r = pd.concat(rows, ignore_index=True)
     r["wy"], r["wm"] = r["w"] * r["dl"], r["w"] * r["dp"]
     k = ["company_id", "day"]
@@ -79,6 +103,27 @@ def main() -> None:
     out["y_big"], out["y_money_big"] = big["wy"] / big["w"], big["wm"] / big["w"]
     ty = r.groupby(k + ["ctype"])[["w", "wy"]].sum()
     out = out.join((ty["wy"] / ty["w"]).unstack("ctype").add_prefix("y_type_")).reset_index()
+
+    lr = r[r["ctype"].isin(LADDERS)].copy()  # steps 76a-76e
+    lr["dir"] = np.where(lr["ctype"] == "close_ladder", "close", np.where(lr["direction"] == "below", "down", "up"))
+    flip = (lr["ctype"] == "close_ladder") & (lr["direction"] == "below")  # "below" rung -> "above" rung: 1 - p
+    lr["l0"], lr["l1"] = np.where(flip, -lr["l0"], lr["l0"]), np.where(flip, -lr["l1"], lr["l1"])
+    lad = []
+    for (cid, day, eid, dr), g in lr.groupby(k + ["event_id", "dir"]):
+        if len(g) < 2:
+            continue
+        x = np.log(g["strike"].to_numpy(float))
+        f0 = ladder_fit(x, g["l0"].to_numpy(), g["c0"].to_numpy(), dr == "down")
+        f1 = ladder_fit(x, g["l1"].to_numpy(), g["c1"].to_numpy(), dr == "down")
+        if f0 and f1:
+            lad.append((cid, day, eid, dr, len(g), f0[0], f1[0], f0[1], f1[1], f1[0] - f0[0],
+                        np.log(f1[1]) - np.log(f0[1]), g["w"].sum()))
+    lad = pd.DataFrame(lad, columns=k + ["event_id", "direction", "n_rungs", "mu0", "mu1", "s0", "s1", "dmu", "dlog_s", "weight"])
+    lad.to_parquet("data/news/ladder_reactions.parquet", index=False)
+    lad["wm"], lad["ws"] = lad["weight"] * lad["dmu"], lad["weight"] * lad["dlog_s"]
+    cl = lad.groupby(k)[["weight", "wm", "ws"]].sum()  # step 76f
+    cl = pd.DataFrame({"y_ladder": cl["wm"] / cl["weight"], "dlog_s": cl["ws"] / cl["weight"]}).reset_index()
+    out = out.merge(cl, on=k, how="left")
     out = out.rename(columns={"dv": "dv_pm_24h", "fs": "flow_small", "fl": "flow_large"}).drop(columns=["w", "wy", "wm"])
 
     px = pd.read_parquet("data/stocks/prices.parquet", columns=["company_id", "date", "adj_close"])
