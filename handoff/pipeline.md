@@ -609,8 +609,8 @@ near expiry. ξ puts every contract's move on one scale; ξ̂ is the part the st
     news more slowly than the stock market.
 99. **How far Polymarket follows the stock:** across company-days, y = a + c·y^S. c is the log-odds
     move per 1% stock move; R² is the share of Polymarket's move the stock explains. Repeated with
-    y_ξ on the stock's standardized return r̃_D (step 78f), where an efficient close contract has
-    c = 1.
+    y_ξ on the stock's standardized return over the same window (ξ̂ of a close contract, step 78d),
+    where an efficient close contract has c = 1.
 100. **Pure news: one strategy, two markets.** Each test day, the pure-news strategy decides which
      companies to bet on and how much (step 92). Apply those same bets to the stock on the same days.
      Both give a daily return per dollar (steps 77 and 78), so the two are directly comparable.
