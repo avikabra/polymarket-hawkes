@@ -294,7 +294,10 @@ decides which of the 61 companies, if any, it is about.
     Each article carries a weight equal to how many articles its group stands for, so the scores
     describe every asked article, not only the sample. The labelling sheet shows the headline,
     source, date and text, and lists all 61 companies as checkboxes for each article.
-31. **Hand check scores.** Precision is the share of the model's matches that you marked right.
+31. **Hand check scores.** Articles whose main subject is a show, film or game (its cast, plot,
+    release or reception) are left out of both scores, because whether they are news about the
+    company that owns the title is ambiguous; they are still matched. The labelling sheet has a
+    "show story" box for this. Precision is the share of the model's matches that you marked right.
     Recall is the share of your marked companies that the model found. Both are weighted (step 30),
     with 95% intervals from 10,000 bootstrap draws. The bar is 98% on both, set before seeing
     results. If either misses it, the instructions change, the test run repeats, and a fresh 200 is
