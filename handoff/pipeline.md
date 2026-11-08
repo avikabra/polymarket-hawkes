@@ -509,7 +509,9 @@ near expiry. ξ puts every contract's move on one scale; ξ̂ is the part the st
      252 sessions, counting a session in progress by its share of 6.5 hours left. Δt = τ0 − τ1, the
      trading time inside the window; a window with Δt = 0 (weekend) gives no ξ.
 78c. **ξ for one contract.** z = Φ⁻¹(p), p the last trade before the time, clipped as in step 13
-     ("below" close rungs use 1 − p); for a barrier contract before its touch z = Φ⁻¹(1 − p/2).
+     ("below" close rungs use 1 − p); for a barrier contract before its touch z = Φ⁻¹(1 − p/2). A
+     barrier resolves on any 1-minute high or low in regular hours, close to continuous monitoring
+     in trading time; the 13 "hit … before 2026" Netflix rungs filed as a close ladder are barriers.
      ξ_c = ± (z1·√τ1 − z0·√τ0) / √Δt, with the sign set so ξ > 0 is good news for the stock
      (− for an up-barrier). For a fairly priced close contract ξ_c is exactly a standard normal
      draw, whatever its price, strike or expiry. Contracts that settle inside the window drop out.
@@ -527,9 +529,10 @@ near expiry. ξ puts every contract's move on one scale; ξ̂ is the part the st
 78f. **Controls.** r̃_D and r̃_{D−1}, the stock's standardized returns on days D and D−1 (log return
      / (σ/√252)); and the starting gap g0 = the weighted average of (z_c(M) − ẑ_c(M))·√τ0/√Δt, where
      ẑ_c is Φ⁻¹ of the model price at the stock's last close before M.
-78g. **Day definition.** Main: the midnight day above. Switch (option A): day D holds articles from
-     4 p.m. on D−1 to 4 p.m. on D (weekend news goes to the next trading day), and both the contract
-     and the stock windows run from the close on D to the close on D+1.
+78g. **Day definition.** Main: the midnight day above. Switch (option A): both the contract and the
+     stock windows run from the 4 p.m. close on trading day D to the close on the next trading day,
+     and the news is the articles dated D−1. GDELT dates articles only to the day, so it cannot split
+     news at 4 p.m.; articles dated D−1 are all published before the window opens.
 
 ## 8. News shock
 
