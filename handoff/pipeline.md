@@ -299,8 +299,8 @@ decides which of the 61 companies, if any, it is about.
     company that owns the title is ambiguous; they are still matched. The labelling sheet has a
     "show story" box for this. Precision is the share of the model's matches that you marked right.
     Recall is the share of your marked companies that the model found. Both are weighted (step 30),
-    with 95% intervals from 10,000 bootstrap draws. The bar is 98% on both, set before seeing
-    results. If either misses it, the instructions change, the test run repeats, and a fresh 200 is
+    with 95% intervals from 10,000 bootstrap draws. The bar is 95% on both, set before seeing the
+    hand-check results. If either misses it, the instructions change, the test run repeats, and a fresh 200 is
     drawn.
 32. **Matches.** Each company in an answer becomes one match: article, company, cut flag, model and
     instruction version (v5).

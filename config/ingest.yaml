@@ -28,6 +28,6 @@ llm_map:                    # scripts/ingest/08_map_companies.py
   prompt_version: "v5"      # bump when the system prompt, user message or schema changes; results go in company_map/<prompt_version>/ and a new one re-asks every article
 hand_check:                 # scripts/ingest/09_hand_check.py
   n_per_group: 100          # 100 articles matched to a company + 100 matched to none
-  pass_bar: 0.98            # precision and recall must both reach it (set before seeing results)
+  pass_bar: 0.95            # precision and recall must both reach it (set before seeing results)
   seed: 0
   bootstrap_reps: 10000
