@@ -493,48 +493,43 @@ MSRR Approach"), with a day in place of his month.
 77. **Money version:** the same weighted average (step 76) of (p′ − p) / p, the return on $1 placed on the
     good-news side (YES on an "above" contract, NO on a "below" one) at the midnight price and sold 24
     hours later.
-**Ladder reaction (thesis method)**
-
-A ladder's rungs are one forecast of the same stock price, so one piece of news moves them
-together. These steps read that forecast from all rungs at once, instead of averaging their moves.
-
-76a. **Ladders.** A ladder is the rungs of one close-ladder group, or the up-barrier rungs or the
-     down-barrier rungs of one barrier-ladder group (each direction is its own ladder), with the same
-     scheduled end (a barrier strike re-listed after a touch is a new question, so a new ladder).
-     Rungs cut short by a split (step 9) count only up to the split. A "below"
-     rung is turned into an "above" rung by taking 1 − p. Rungs follow step 75: open at the midnight
-     after D, at least $1,000 traded through D, and at least one trade in the 24 hours; a rung that
-     settles inside the 24 hours enters with its last trade before it settled.
-76b. **Prices.** At time t, each rung's price is its last trade before t, in log-odds ℓ_i(t)
-     (clipped as in step 13). The same rungs are used at both times (midnight M and M + 24 hours),
-     so a change in which rungs traded cannot move the result. A rung priced at the clip (0.001 or
-     0.999) at either time leaves the fit, because it only says the price is far from its strike, and
-     so does a rung with a strike of $0. A ladder needs at least 2 rungs left, and at both times at
-     least one rung at or above even odds and one at or below, and the fitted μ must lie between the
-     lowest and highest strike, so that μ is read between rungs and never extrapolated beyond them.
-76c. **The curve.** ℓ_i = (μ − ln K_i) / s for a close ladder or an up-barrier ladder, and
-     ℓ_i = (ln K_i − μ) / s for a down-barrier ladder, where K_i is the rung's strike and s > 0.
-     μ is the log price the market sees as even odds: for a close ladder, its median forecast of the
-     log closing price; for a barrier ladder, the level it gives an even chance of being touched.
-     s is how spread out the forecast is. The curve keeps the rungs in order by construction:
-     P(above $240) ≥ P(above $250), the no-arbitrage condition.
-76d. **Fit.** At each time, fit the line ℓ_i = a − b·ln K_i (or a + b·ln K_i for a down-barrier
-     ladder) by least squares weighted by each rung's dollars traded up to t; then s = 1 / b, and
-     μ = a / b for a close or up-barrier ladder, μ = −a / b for a down-barrier ladder. With 2 rungs the line passes through both exactly. If b ≤ 0 (rungs out of order,
-     usually because of stale prices), or if every rung has the same strike, the ladder has no fit at
-     that time.
-76e. **Ladder reaction.** Δμ = μ(M + 24 hours) − μ(M): the shift of the market's price forecast, in
-     log price, the same unit as a stock's log return; Δμ > 0 is good news. Δln s, the change in how
-     uncertain the forecast is, is reported separately.
-76f. **Company ladder reaction.** y_ladder(k,D) = the average of Δμ across k's ladders, weighted as in
-     step 76 by dollars traded on D. It is the main reaction on every company-day with a ladder. The
-     log-odds y (step 76) stays for every company-day, as the comparison, and the two are never
-     mixed in one number because their units differ. Sections 10 and 11 run y_ladder as its own
-     target beside y and y_money.
-
 78. **Stock version:** y^S(k,D) = the stock's return from the last close on or before D to the close
     of the next trading day. Used only when the next calendar day is a trading day, so both windows
     cover the same day.
+
+**Standardized reaction ξ and its stock-implied part**
+
+A contract on a stock is a digital option on it, so the stock's own move changes the contract's
+price by a computable amount, and a log-odds change means different things near 0, near 1 and
+near expiry. ξ puts every contract's move on one scale; ξ̂ is the part the stock's move forces.
+
+78a. **Volatility.** σ(k,D) = the exponentially weighted standard deviation of the stock's daily log
+     returns through D, half-life 20 trading days (10 and 60 as checks), in annual units (× √252).
+78b. **Time left.** τ = NYSE trading time from a moment to the contract's scheduled end, in years of
+     252 sessions, counting a session in progress by its share of 6.5 hours left. Δt = τ0 − τ1, the
+     trading time inside the window; a window with Δt = 0 (weekend) gives no ξ.
+78c. **ξ for one contract.** z = Φ⁻¹(p), p the last trade before the time, clipped as in step 13
+     ("below" close rungs use 1 − p); for a barrier contract before its touch z = Φ⁻¹(1 − p/2).
+     ξ_c = ± (z1·√τ1 − z0·√τ0) / √Δt, with the sign set so ξ > 0 is good news for the stock
+     (− for an up-barrier). For a fairly priced close contract ξ_c is exactly a standard normal
+     draw, whatever its price, strike or expiry. Contracts that settle inside the window drop out.
+78d. **ξ̂ for one contract.** The same formula with the model price in place of p: Φ(d),
+     d = [ln(S/K) − σ²τ/2] / (σ√τ), for a close contract, and the first-passage probability of the
+     stock reaching K before the end for a barrier contract, at the stock prices S0 and S1 of step 78.
+     For a close-above contract ξ̂_c reduces to the stock's standardized return,
+     [ln(S1/S0) + σ²Δt/2] / (σ√Δt), the same for every strike and expiry.
+78e. **Company targets.** y_ξ(k,D), ξ̂(k,D) = weighted averages of ξ_c and ξ̂_c with the weights of
+     step 76, over contracts with a strike (close and barrier ladders); contracts without one
+     (up-or-down, KPI, earnings, valuation) drop out of these and stay in y. The leftover is
+     m_ξ = y_ξ − ξ̂: the part of Polymarket's reaction the stock's move does not explain. y_ξ is the
+     headline reaction. In log-odds, y^imp averages L(S1, τ1) − L(S0, τ0) of the model price, and
+     m = y − y^imp; these and y_money form the robustness rows.
+78f. **Controls.** r̃_D and r̃_{D−1}, the stock's standardized returns on days D and D−1 (log return
+     / (σ/√252)); and the starting gap g0 = the weighted average of (z_c(M) − ẑ_c(M))·√τ0/√Δt, where
+     ẑ_c is Φ⁻¹ of the model price at the stock's last close before M.
+78g. **Day definition.** Main: the midnight day above. Switch (option A): day D holds articles from
+     4 p.m. on D−1 to 4 p.m. on D (weekend news goes to the next trading day), and both the contract
+     and the stock windows run from the close on D to the close on D+1.
 
 ## 8. News shock
 
@@ -553,6 +548,10 @@ together. These steps read that forecast from all rungs at once, instead of aver
     scored once.
 85. The model used on day D uses only company-days whose 24 hours have passed by the end of D, which
     means days up to D−1.
+85a. **Diagnostics, training days only.** In bins of price and days left: mean ξ (near 0 if the
+     contracts are fairly priced), mean ξ² (equals (true σ / priced σ)², so above 1 means Polymarket
+     moves more than its prices imply), and the slope of ξ on ξ̂. They are read, and the half-life,
+     the day definition and any bins to drop are locked, before step 84's test.
 
 ## 10. Fit
 
@@ -586,6 +585,15 @@ together. These steps read that forecast from all rungs at once, instead of aver
     of the news-shock (u), raw-news (E) and predictable-news (S β̂) strategies, side by side, in
     money (step 77) and in log-odds (step 74), each number labelled with its unit. Kelly et al.
     report Sharpe ratios as point values; their intervals and t-statistics are on alphas.
+95a. **The reaction regressions.** The news enters as one number per company-day: ŝ(k,D), the
+     out-of-sample ridge prediction of y_ξ from u (step 91). On test days, for each target T in
+     y_ξ, ξ̂, m_ξ: T = α_D + β·ŝ + δ1·r̃_D + δ2·r̃_{D−1} + δ3·g0 + e, with day fixed effects α_D and
+     errors clustered by company (by day as a check). β on y_ξ equals β on ξ̂ plus β on m_ξ. Beside
+     them: y_ξ = α_D + β·ŝ + γ·ξ̂ + δ'X + e with γ free. A nonzero β on m_ξ, or with γ free, says the
+     news moves Polymarket at a given stock move; it is read only where step 85a finds mean ξ² near
+     1. Intervals: 10,000 resamples of test days through the whole pipeline, σ included. For the
+     strategy, u is also residualized on r̃_D and r̃_{D−1} using earlier days only, and both versions
+     are reported.
 96. **Repeat for:** contracts with $10,000+ traded; shocks with β frozen at the end of training
     (step 69); each contract type alone. All numbers are before trading costs, which are not in the
     data.
@@ -598,8 +606,8 @@ together. These steps read that forecast from all rungs at once, instead of aver
     news more slowly than the stock market.
 99. **How far Polymarket follows the stock:** across company-days, y = a + c·y^S. c is the log-odds
     move per 1% stock move; R² is the share of Polymarket's move the stock explains. Repeated with
-    y_ladder (step 76f) against the stock's log return, where both are in log price: c = 1 means
-    Polymarket's price forecast moves one for one with the stock.
+    y_ξ on the stock's standardized return r̃_D (step 78f), where an efficient close contract has
+    c = 1.
 100. **Pure news: one strategy, two markets.** Each test day, the pure-news strategy decides which
      companies to bet on and how much (step 92). Apply those same bets to the stock on the same days.
      Both give a daily return per dollar (steps 77 and 78), so the two are directly comparable.
