@@ -10,12 +10,15 @@ weight = stratum size / sample size, so weighted counts estimate all asked artic
 company name). Articles with no answer yet are left out.
 
 labels.html holds only headline, source, date and text (no model output, no stratum, no weight). Open it in a
-browser, tick the companies each article is primarily about (or none), label all 200, press Export, and pass the
-saved labels.json to --score.
+browser, tick the companies each article is primarily about (or none), or tick "show story" if its main subject
+is a show, film or game (cast, plot, release, reception); label all 200, press Export, and pass the saved
+labels.json to --score. labels.json holds {article_id: {"companies": [ids], "show_story": bool}}.
 
---score refuses a labels.json that is incomplete, names an unknown company, or is for another prompt_version.
+--score refuses a labels.json that is incomplete (an article missing, or without a show_story flag), names an
+unknown company, or is for another prompt_version. Show stories are left out of both scores (they are still
+matched) and the number left out is reported.
 Precision = weighted share of the model's yes companies that are right; recall = weighted share of the true
-companies the model found. 95% intervals: stratified bootstrap. passed = both point values >= pass_bar.
+companies the model found. 95% intervals: stratified bootstrap. passed = both point values >= pass_bar (hand_check.pass_bar in config/ingest.yaml).
 result.json is written to data/news/hand_check/<prompt_version>/.
 """
 from __future__ import annotations
@@ -119,42 +122,44 @@ h1{font-size:20px;margin:0 0 4px}.meta{color:#555;margin-bottom:12px}
 .text{white-space:pre-wrap;max-height:75vh;overflow:auto;border:1px solid #ddd;padding:12px}
 .boxes{columns:2;font-size:14px}.boxes label{display:block;break-inside:avoid;padding:1px 0}
 button{padding:5px 12px;font:inherit;cursor:pointer}
-.none{font-weight:600;margin-bottom:8px;display:block}
+.none{font-weight:600;margin-bottom:8px;display:block}.def{color:#555;font-size:13px;flex-basis:100%}
 </style></head><body>
 <header>
 <button id="prev">Prev</button><button id="next">Next</button>
 <span id="pos"></span><strong id="done"></strong>
 <button id="export">Export labels.json</button>
 <button id="skipundone">Next unlabelled</button>
+<span class="def">Show story: the article's main subject is a show, film or game (its cast, plot, release or reception). Tick it instead of any company.</span>
 </header>
 <main>
 <section><h1 id="headline"></h1><div class="meta" id="meta"></div><div class="text" id="text"></div></section>
-<section><label class="none"><input type="checkbox" id="none"> None of the companies</label><div class="boxes" id="boxes"></div></section>
+<section><label class="none"><input type="checkbox" id="show"> Show story</label><label class="none"><input type="checkbox" id="none"> None of the companies</label><div class="boxes" id="boxes"></div></section>
 </main>
 <script id="data" type="application/json">__DATA__</script>
 <script>
 const D = JSON.parse(document.getElementById("data").textContent);
 const KEY = "handcheck-" + D.prompt_version;
-let state = {}, i = 0;  // state[article_id] = {none: bool, companies: [ids]}
+let state = {}, i = 0;  // state[article_id] = {none: bool, show: bool, companies: [ids]}
 try { state = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
-const isDone = a => { const s = state[a.article_id]; return !!s && (s.none || s.companies.length > 0); };
-const boxes = document.getElementById("boxes"), none = document.getElementById("none");
+const isDone = a => { const s = state[a.article_id]; return !!s && (s.none || s.show || s.companies.length > 0); };
+const boxes = document.getElementById("boxes"), none = document.getElementById("none"), showBox = document.getElementById("show");
 D.companies.forEach(c => {
   const l = document.createElement("label"), b = document.createElement("input");
   b.type = "checkbox"; b.value = c.id; b.className = "co";
   b.onchange = () => { const s = cur(); s.companies = [...document.querySelectorAll(".co:checked")].map(x => x.value);
-    if (s.companies.length) s.none = false; save(); show(); };
+    if (s.companies.length) { s.none = false; s.show = false; } save(); show(); };
   l.append(b, " " + c.name + " (" + c.id + ")"); boxes.append(l);
 });
-none.onchange = () => { const s = cur(); s.none = none.checked; if (s.none) s.companies = []; save(); show(); };
-function cur() { const id = D.articles[i].article_id; return state[id] = state[id] || {none: false, companies: []}; }
+none.onchange = () => { const s = cur(); s.none = none.checked; if (s.none) { s.companies = []; s.show = false; } save(); show(); };
+showBox.onchange = () => { const s = cur(); s.show = showBox.checked; if (s.show) { s.companies = []; s.none = false; } save(); show(); };
+function cur() { const id = D.articles[i].article_id; return state[id] = state[id] || {none: false, show: false, companies: []}; }
 function show() {
-  const a = D.articles[i], s = state[a.article_id] || {none: false, companies: []};
+  const a = D.articles[i], s = state[a.article_id] || {none: false, show: false, companies: []};
   document.getElementById("headline").textContent = a.headline;
   document.getElementById("meta").textContent = a.source + " | " + a.day;
   document.getElementById("text").textContent = a.text;
-  none.checked = s.none;
+  none.checked = s.none; showBox.checked = !!s.show;
   document.querySelectorAll(".co").forEach(b => b.checked = s.companies.includes(b.value));
   document.getElementById("pos").textContent = "Article " + (i + 1) + " / " + D.articles.length;
   document.getElementById("done").textContent = D.articles.filter(isDone).length + " done";
@@ -168,7 +173,7 @@ document.getElementById("skipundone").onclick = () => {
 };
 document.getElementById("export").onclick = () => {
   const labels = {};
-  D.articles.filter(isDone).forEach(a => labels[a.article_id] = state[a.article_id].companies);
+  D.articles.filter(isDone).forEach(a => labels[a.article_id] = {companies: state[a.article_id].companies, show_story: !!state[a.article_id].show});
   const n = Object.keys(labels).length;
   if (n < D.articles.length && !confirm(n + " of " + D.articles.length + " labelled. Export anyway? Scoring needs all.")) return;
   const url = URL.createObjectURL(new Blob([JSON.stringify({prompt_version: D.prompt_version, labels}, null, 1)], {type: "application/json"}));
@@ -224,11 +229,17 @@ def score(path: str, pv: str, cfg: dict, seed: int) -> None:
     if missing or extra:
         sys.exit(f"{path} is incomplete or for another sample: {len(missing)} articles unlabelled, {len(extra)} unknown")
     valid = {c.id for c in load_companies()}
-    for a, ids in labels.items():
-        if not isinstance(ids, list) or not set(ids) <= valid or len(set(ids)) != len(ids):
-            sys.exit(f"bad label for {a}: {ids!r}")
+    for a, lb in labels.items():
+        if not isinstance(lb, dict) or "show_story" not in lb:
+            sys.exit(f"incomplete label for {a}: needs companies and show_story, got {lb!r}")
+        ids = lb.get("companies")
+        if not isinstance(ids, list) or not set(ids) <= valid or len(set(ids)) != len(ids) or not isinstance(lb["show_story"], bool):
+            sys.exit(f"bad label for {a}: {lb!r}")
 
-    truth = [set(labels[a]) for a in sample["article_id"]]
+    show = np.array([labels[a]["show_story"] for a in sample["article_id"]])
+    n_show = int(show.sum())
+    sample = sample[~show].reset_index(drop=True)  # show stories are left out of both scores
+    truth = [set(labels[a]["companies"]) for a in sample["article_id"]]
     model = [set(c) for c in sample["companies"]]
     tp = np.array([len(a & b) for a, b in zip(model, truth)], float)
     m = np.array([len(a) for a in model], float)
@@ -242,7 +253,7 @@ def score(path: str, pv: str, cfg: dict, seed: int) -> None:
     bar = cfg["pass_bar"]
     passed = bool(prec >= bar and rec >= bar)
 
-    print(f"prompt_version {pv}; {len(sample)} articles; pass bar {bar:.0%}")
+    print(f"prompt_version {pv}; {len(sample)} articles scored, {n_show} show stories left out; pass bar {bar:.0%}")
     print(f"precision {prec:.4f}  95% CI [{p_ci[0]:.4f}, {p_ci[1]:.4f}]  (unweighted {uprec:.4f}; {int(m.sum())} model labels)")
     print(f"recall    {rec:.4f}  95% CI [{r_ci[0]:.4f}, {r_ci[1]:.4f}]  (unweighted {urec:.4f}; {int(t.sum())} true labels)")
     strata = sample.drop_duplicates("stratum")
@@ -270,7 +281,7 @@ def score(path: str, pv: str, cfg: dict, seed: int) -> None:
               f"      model {sorted(model[i])}  hand {sorted(truth[i])}  "
               f"false+ {sorted(model[i] - truth[i])}  false- {sorted(truth[i] - model[i])}")
 
-    result = {"prompt_version": pv, "passed": passed, "pass_bar": bar, "n_articles": len(sample),
+    result = {"prompt_version": pv, "passed": passed, "pass_bar": bar, "n_articles": len(sample), "n_show_story_left_out": n_show,
               "precision": prec, "precision_ci95": p_ci, "recall": rec, "recall_ci95": r_ci,
               "precision_unweighted": float(uprec), "recall_unweighted": float(urec),
               "n_model_labels": int(m.sum()), "n_true_labels": int(t.sum()), "n_disagreements": len(bad),
