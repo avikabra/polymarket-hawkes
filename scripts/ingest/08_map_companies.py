@@ -192,7 +192,7 @@ def run(cfg: dict, out: Path, limit: int | None, retry: bool, stop_after: float 
     llm = LLM(model=cfg["model"], enable_prefix_caching=True, seed=cfg["seed"],  # the shared system prompt is cached
               max_model_len=sys_tokens + cfg["max_input_tokens"] + cfg["max_output_tokens"] + 64)
     logf = open(Path("logs") / f"{out.parent.name}_{out.name}.log", "a")
-    t_start, n_done, tok_in, tok_out, longest = time.time(), 0, 0, 0, 0.0
+    t_start, n_done, tok_in, tok_out, longest, all_failed = time.time(), 0, 0, 0, 0.0, 0
     for name, chunk in chunks:
         if stop_after and time.time() - T_PROC + 2 * longest > stop_after:  # stop between chunks, never inside one
             print(f"stopping before the time limit at {name}; the next run resumes here", flush=True)
@@ -244,6 +244,9 @@ def run(cfg: dict, out: Path, limit: int | None, retry: bool, stop_after: float 
         print(line, flush=True)
         logf.write(line + "\n")
         logf.flush()
+        all_failed = all_failed + 1 if not rows else 0
+        if all_failed == 3:  # something systematic (prompt, schema, model): stop instead of burning GPU time
+            sys.exit(f"3 chunks in a row with no valid answer; last error: {errs[-1]['error'] if errs else '?'}")
 
     if limit:
         secs = time.time() - t_start

@@ -34,8 +34,7 @@ def system_prompt(companies: list[Company]) -> str:
 def schema(companies: list[Company]) -> dict:
     return {
         "type": "object",
-        "properties": {"companies": {"type": "array", "items": {"type": "string", "enum": [c.name for c in companies]},
-                                     "uniqueItems": True}},
+        "properties": {"companies": {"type": "array", "items": {"type": "string", "enum": [c.name for c in companies]}}},
         "required": ["companies"],
         "additionalProperties": False,
     }
@@ -100,6 +99,6 @@ def parse_answer(raw: str, companies: list[Company]) -> list[str]:
         raise ValueError(f"bad json: {e}") from e
     by_name = {c.name: c.id for c in companies}
     if (not isinstance(out, dict) or set(out) != {"companies"} or not isinstance(out["companies"], list)
-            or not set(out["companies"]) <= set(by_name) or len(set(out["companies"])) != len(out["companies"])):
+            or not set(out["companies"]) <= set(by_name)):
         raise ValueError("not {'companies': [listed names]}")
-    return sorted(by_name[n] for n in out["companies"])
+    return sorted({by_name[n] for n in out["companies"]})  # a repeated name counts once

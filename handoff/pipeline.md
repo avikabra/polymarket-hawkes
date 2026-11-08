@@ -231,7 +231,7 @@ decides which of the 61 companies, if any, it is about.
     memory never holds more than one block, and uses 16 CPUs and 8 GB of memory for at most 3 hours.
 25. **The model.** Qwen3.5-4B, an open language model, answers each question. It runs on one L40S
     GPU on Bouchet with vLLM in batch mode. A fixed answer format forces the answer to be a list of
-    company names exactly as listed, each at most once. Temperature is 0, so the same question
+    company names exactly as listed; a name repeated in an answer counts once. Temperature is 0, so the same question
     always gets the same answer, and the model does no step-by-step thinking.
 26. **The instructions** given before every question, word for word:
 
