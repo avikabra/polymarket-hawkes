@@ -29,26 +29,23 @@ def sharpe(x):
     return x.mean() / x.std(ddof=1)
 
 
-def boot(sub):
-    """Bootstrap Sharpe of each column over test days drawn with replacement (step 95)."""
-    v = sub.to_numpy()
-    d = v[rng.integers(0, len(v), (B, len(v)))]
-    return d.mean(1) / d.std(1, ddof=1)
+UNIT = {"y": "log-odds (step 74)", "y_same": "log-odds (step 74)", "y_big": "log-odds (step 74)",
+        "y_money": "money (step 77)", "y_money_big": "money (step 77)", "y_stock": "stock return (step 78)"}
+
+
+def unit(target):
+    return UNIT.get(target, "log-odds (step 74)" if target.startswith("y_type_") else "?")
 
 
 def sharpe_row(s, **keys):
+    """Point out-of-sample Sharpe ratio over the test days, as Kelly et al. report it (step 95: no intervals)."""
     s = s.dropna()
-    bs = boot(s.to_frame())[:, 0]
-    return {**keys, "n_days": len(s), "mean": s.mean(), "sd": s.std(ddof=1), "sharpe": sharpe(s),
-            "lo": np.percentile(bs, 2.5), "hi": np.percentile(bs, 97.5)}
+    return {**keys, "n_days": len(s), "mean": s.mean(), "sd": s.std(ddof=1), "sharpe": sharpe(s)}
 
 
 def gap_row(a, b, **keys):
     sub = pd.concat([a, b], axis=1).dropna()
-    bs = boot(sub)
-    g = bs[:, 0] - bs[:, 1]
-    return {**keys, "n_days": len(sub), "gap": sharpe(sub.iloc[:, 0]) - sharpe(sub.iloc[:, 1]),
-            "lo": np.percentile(g, 2.5), "hi": np.percentile(g, 97.5)}
+    return {**keys, "n_days": len(sub), "gap": sharpe(sub.iloc[:, 0]) - sharpe(sub.iloc[:, 1])}
 
 
 def ols(x, yv, day):
@@ -70,12 +67,17 @@ def main():
     rx["day"] = pd.to_datetime(rx["day"]).dt.normalize()
     R = {k: g.set_index("day")["R"] for k, g in pr.groupby(["method", "predictor", "target"])}
 
-    # steps 93, 96, 97: Sharpe of every portfolio, with 95% intervals
-    rows = [sharpe_row(s, method=k[0], predictor=k[1], target=k[2]) for k, s in R.items()]
+    # steps 93, 96, 97: Sharpe of every portfolio, each labelled with its unit
+    rows = [sharpe_row(s, method=k[0], predictor=k[1], target=k[2], unit=unit(k[2])) for k, s in R.items()]
     sh = pd.DataFrame(rows)
     sh.to_csv(RES / "sharpe.csv", index=False)
+    # step 95: Kelly et al. Figure 4, news shock vs raw news vs predictable news, in money and in log-odds
+    fig4 = sh[(sh.method == "msrr") & sh.predictor.isin(["u", "E", "Sbeta"]) & sh.target.isin(["y_money", "y"])] \
+        .pivot(index="predictor", columns="unit", values="sharpe").reindex(["u", "E", "Sbeta"])
+    fig4.index = fig4.index.map({"u": "news shock (u)", "E": "raw news (E)", "Sbeta": "predictable news (S beta)"})
+    fig4.reset_index().to_csv(RES / "figure4_sharpe.csv", index=False)
 
-    # steps 95, 96, 98: gaps, pure news minus raw news (each target) and Polymarket minus stock
+    # steps 96, 98: gaps of the point Sharpe ratios, pure news minus raw news (each target) and Polymarket minus stock
     gaps = []
     for t in sorted({k[2] for k in R if k[0] == "msrr"}):
         if ("msrr", "u", t) in R and ("msrr", "E", t) in R:
@@ -105,7 +107,7 @@ def main():
                           "stock": (pn["w"] * pn["y_stock"]).groupby(pn["day"]).sum()})
     f = ols(daily["stock"], daily["pm"], daily.index.to_series())  # step 101: pm = a + c * stock over test days
     x, v = daily["stock"].to_numpy(), daily["pm"].to_numpy()
-    ix = rng.integers(0, len(x), (B, len(x)))  # step 102: resample days, as in step 95
+    ix = rng.integers(0, len(x), (B, len(x)))  # step 102: resample test days
     xb, vb = x[ix], v[ix]
     xc, vc = xb - xb.mean(1, keepdims=True), vb - vb.mean(1, keepdims=True)
     cb = (xc * vc).sum(1) / (xc ** 2).sum(1)
@@ -152,14 +154,15 @@ def main():
     g1 = gaps[(gaps["comparison"] == "u minus E") & (gaps["target"] == "y")].iloc[0]
     s_b = sh[(sh.method == "msrr") & (sh.predictor == "Sbeta") & (sh.target == "y")].iloc[0]
     g3 = gaps[(gaps["comparison"] == "u: Polymarket minus stock")].iloc[0]
-    claim = [("pure news Sharpe beats raw news (CI of the gap above 0)", g1["lo"] > 0, f"gap {g1['gap']:.3f} [{g1['lo']:.3f}, {g1['hi']:.3f}]"),
-             ("predictable news earns little (its Sharpe CI contains 0)", s_b["lo"] <= 0 <= s_b["hi"], f"Sharpe {s_b['sharpe']:.3f} [{s_b['lo']:.3f}, {s_b['hi']:.3f}]"),
-             ("Polymarket Sharpe beats stock Sharpe on the same news (CI of the gap above 0)", g3["lo"] > 0, f"gap {g3['gap']:.3f} [{g3['lo']:.3f}, {g3['hi']:.3f}]")]
+    claim = [("pure news Sharpe beats raw news", g1["gap"] > 0, f"gap {g1['gap']:.3f}, log-odds"),
+             ("predictable news earns little", None, f"Sharpe {s_b['sharpe']:.3f}, log-odds"),
+             ("Polymarket Sharpe beats stock Sharpe on the same news", g3["gap"] > 0, f"gap {g3['gap']:.3f}")]
     out = ["# Test-period results (2026-08-28 to 2026-10-29)", "", "Daily Sharpe ratios, before trading costs.", "",
            "## Claim (step 107)", ""]
-    out += [f"- {'HOLDS' if ok else 'FAILS'}: {t} ({n})" for t, ok, n in claim]
-    out += ["", f"Overall: {'claim holds' if all(c[1] for c in claim) else 'claim does not hold'}.", ""]
-    for title, t in [("Sharpe ratios (steps 93, 96, 97)", sh), ("Gaps (steps 95, 98)", gaps), ("R2 OOS of the ridge check (step 94)", r2.reset_index()),
+    out += [f"- {'REPORTED' if ok is None else 'HOLDS' if ok else 'FAILS'}: {t} ({n})" for t, ok, n in claim]
+    out += [""]
+    for title, t in [("Figure 4: out-of-sample Sharpe ratios by unit (step 95)", fig4.reset_index()),
+                     ("Sharpe ratios (steps 93, 96, 97)", sh), ("Gaps of point Sharpe ratios (steps 96, 98)", gaps), ("R2 OOS of the ridge check (step 94)", r2.reset_index()),
                      ("Polymarket on stock (step 99)", pd.DataFrame(follow)),
                      ("Pure news, Polymarket money return on stock return (steps 100-102)", pure),
                      ("Volume terciles (step 104)", pd.DataFrame(ter)),

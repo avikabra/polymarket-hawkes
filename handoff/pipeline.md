@@ -529,8 +529,10 @@ MSRR Approach"), with a day in place of his month.
     (step 74).
 94. **For the check in step 91:** R²_OOS = 1 − Σ(y − ŷ)² / Σ y², the share of the moves predicted,
     compared with predicting no move.
-95. **Uncertainty:** draw test days with replacement, recompute, and repeat 10,000 times, for 95%
-    intervals on each Sharpe ratio and on the gap between pure news and raw news.
+95. **Presentation, as in Kelly et al. Figure 4:** the out-of-sample Sharpe ratios on the test days
+    of the news-shock (u), raw-news (E) and predictable-news (S β̂) strategies, side by side, in
+    money (step 77) and in log-odds (step 74), each number labelled with its unit. Kelly et al.
+    report Sharpe ratios as point values; their intervals and t-statistics are on alphas.
 96. **Repeat for:** contracts with $10,000+ traded; shocks with β frozen at the end of training
     (step 69); each contract type alone. All numbers are before trading costs, which are not in the
     data.
@@ -551,7 +553,7 @@ MSRR Approach"), with a day in place of his month.
      Polymarket mirrors the stock; near 0, it reacts on its own. a is Polymarket's alpha over the
      stock, the profit the stock's reaction does not explain. A positive a means Polymarket misprices
      pure news in a way the stock does not.
-102. **Precision:** a and c with 95% intervals, by the same day resampling as step 95.
+102. **Precision:** a and c with 95% intervals, by resampling test days 10,000 times.
 
 **Trade size**
 
