@@ -493,6 +493,38 @@ MSRR Approach"), with a day in place of his month.
 77. **Money version:** the same weighted average (step 76) of (p′ − p) / p, the return on $1 placed on the
     good-news side (YES on an "above" contract, NO on a "below" one) at the midnight price and sold 24
     hours later.
+**Ladder reaction (thesis method)**
+
+A ladder's rungs are one forecast of the same stock price, so one piece of news moves them
+together. These steps read that forecast from all rungs at once, instead of averaging their moves.
+
+76a. **Ladders.** A ladder is the rungs of one close-ladder group, or the up-barrier rungs or the
+     down-barrier rungs of one barrier-ladder group (each direction is its own ladder). A "below"
+     rung is turned into an "above" rung by taking 1 − p. Rungs follow step 75 (open at the midnight
+     after D, at least $1,000 traded through D); a rung that settles inside the 24 hours enters with
+     its last trade before it settled.
+76b. **Prices.** At time t, each rung's price is its last trade before t, in log-odds ℓ_i(t)
+     (clipped as in step 13). The same rungs are used at both times (midnight M and M + 24 hours),
+     so a change in which rungs traded cannot move the result. A ladder needs at least 2 such rungs.
+76c. **The curve.** ℓ_i = (μ − ln K_i) / s for a close ladder or an up-barrier ladder, and
+     ℓ_i = (ln K_i − μ) / s for a down-barrier ladder, where K_i is the rung's strike and s > 0.
+     μ is the log price the market sees as even odds: for a close ladder, its median forecast of the
+     log closing price; for a barrier ladder, the level it gives an even chance of being touched.
+     s is how spread out the forecast is. The curve keeps the rungs in order by construction:
+     P(above $240) ≥ P(above $250), the no-arbitrage condition.
+76d. **Fit.** At each time, fit the line ℓ_i = a − b·ln K_i (or a + b·ln K_i for a down-barrier
+     ladder) by least squares weighted by each rung's dollars traded up to t; then μ = a / b and
+     s = 1 / b. With 2 rungs the line passes through both exactly. If b ≤ 0 (rungs out of order,
+     usually because of stale prices), the ladder has no fit at that time.
+76e. **Ladder reaction.** Δμ = μ(M + 24 hours) − μ(M): the shift of the market's price forecast, in
+     log price, the same unit as a stock's log return; Δμ > 0 is good news. Δln s, the change in how
+     uncertain the forecast is, is reported separately.
+76f. **Company ladder reaction.** y_ladder(k,D) = the average of Δμ across k's ladders, weighted as in
+     step 76 by dollars traded on D. It is the main reaction on every company-day with a ladder. The
+     log-odds y (step 76) stays for every company-day, as the comparison, and the two are never
+     mixed in one number because their units differ. Sections 10 and 11 run y_ladder as its own
+     target beside y and y_money.
+
 78. **Stock version:** y^S(k,D) = the stock's return from the last close on or before D to the close
     of the next trading day. Used only when the next calendar day is a trading day, so both windows
     cover the same day.
@@ -558,7 +590,9 @@ MSRR Approach"), with a day in place of his month.
 98. Compare the two Sharpe ratios. A higher Sharpe on Polymarket means Polymarket absorbs the same
     news more slowly than the stock market.
 99. **How far Polymarket follows the stock:** across company-days, y = a + c·y^S. c is the log-odds
-    move per 1% stock move; R² is the share of Polymarket's move the stock explains.
+    move per 1% stock move; R² is the share of Polymarket's move the stock explains. Repeated with
+    y_ladder (step 76f) against the stock's log return, where both are in log price: c = 1 means
+    Polymarket's price forecast moves one for one with the stock.
 100. **Pure news: one strategy, two markets.** Each test day, the pure-news strategy decides which
      companies to bet on and how much (step 92). Apply those same bets to the stock on the same days.
      Both give a daily return per dollar (steps 77 and 78), so the two are directly comparable.
