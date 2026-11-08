@@ -28,6 +28,7 @@ import json
 import os
 import sys
 import time
+
 from multiprocessing import Pool
 from pathlib import Path
 from urllib.parse import urlparse
@@ -46,6 +47,7 @@ from src.ingest.company_map import article_text, fit_message, name_hits, parse_a
 FETCHED = Path("data/news/fetched")
 CFG_CHARS = yaml.safe_load(open("config/ingest.yaml"))["llm_map"]["max_input_chars"]
 ARTICLES = Path("data/news/articles.parquet")
+T_PROC = time.time()  # process start, for --stop-after
 OUT = Path("data/news/company_map")  # results live in OUT/<prompt_version>/
 OUT_TEST = Path("data/news/company_map_test")
 MATCHES = Path("data/news/matches.parquet")
@@ -148,7 +150,7 @@ def prepare_out(out: Path) -> None:
         saved.write_text(prompt_text(load_companies()))
 
 
-def run(cfg: dict, out: Path, limit: int | None, retry: bool) -> None:
+def run(cfg: dict, out: Path, limit: int | None, retry: bool, stop_after: float | None = None) -> None:
     import torch
 
     if not torch.cuda.is_available():
@@ -190,8 +192,11 @@ def run(cfg: dict, out: Path, limit: int | None, retry: bool) -> None:
     llm = LLM(model=cfg["model"], enable_prefix_caching=True, seed=cfg["seed"],  # the shared system prompt is cached
               max_model_len=sys_tokens + cfg["max_input_tokens"] + cfg["max_output_tokens"] + 64)
     logf = open(Path("logs") / f"{out.parent.name}_{out.name}.log", "a")
-    t_start, n_done, tok_in, tok_out = time.time(), 0, 0, 0
+    t_start, n_done, tok_in, tok_out, longest = time.time(), 0, 0, 0, 0.0
     for name, chunk in chunks:
+        if stop_after and time.time() - T_PROC + 2 * longest > stop_after:  # stop between chunks, never inside one
+            print(f"stopping before the time limit at {name}; the next run resumes here", flush=True)
+            break
         t0 = time.time()
         convs, cut = [], []
         for q in chunk.to_dict("records"):
@@ -225,6 +230,7 @@ def run(cfg: dict, out: Path, limit: int | None, retry: bool) -> None:
         write_parquet(failed, failed_path)
 
         n_done += len(chunk)
+        longest = max(longest, time.time() - t0)
         tok_in += c_in
         tok_out += c_out
         rate = n_done / (time.time() - t_start)
@@ -271,6 +277,7 @@ def main() -> None:
     ap.add_argument("--retry", action="store_true")
     ap.add_argument("--build", action="store_true")
     ap.add_argument("--scan", action="store_true")
+    ap.add_argument("--stop-after", type=float, default=None, help="seconds since start; no new chunk after that")
     args = ap.parse_args()
     cfg = yaml.safe_load(open("config/ingest.yaml"))["llm_map"]
     pv = str(cfg["prompt_version"])
@@ -282,7 +289,7 @@ def main() -> None:
     if args.build:
         build(OUT / pv)
         return
-    run(cfg, (OUT_TEST if args.limit else OUT) / pv, args.limit, args.retry)
+    run(cfg, (OUT_TEST if args.limit else OUT) / pv, args.limit, args.retry, args.stop_after)
 
 
 if __name__ == "__main__":
