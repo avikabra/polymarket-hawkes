@@ -37,7 +37,7 @@ Section 5 embeds only the articles that Section 4 matched.
 |---|---|---|
 | Stock history | 2020-09-01 to 2026-10-30 | Stock characteristics (beta needs 5 years, momentum 1 year) |
 | Polymarket | 2025-09-26 (first company trade) to 2026-10-30 | Contracts, trades, Polymarket characteristics |
-| Articles | 2025-09-26 to 2026-10-30 | Matching, embeddings, shocks |
+| Articles | 2025-09-26 to 2026-10-31 | Matching, embeddings, shocks |
 | Shocks | About 2025-10-26 to 2026-10-29 | One month after the first trade, so the first month can be estimated |
 | Train | 2025-10-26 to 2026-08-27 | First estimate of the trading model, not scored |
 | Test | 2026-08-28 to 2026-10-29 | Scored once, after everything is locked |
@@ -176,27 +176,38 @@ Built by `scripts/ingest/02_pull_contracts.py` (contracts, checks, pull report),
 
 ## 3. Articles
 
-15. **Find articles.** GDELT is a free database of news articles worldwide, recording each article's
-    URL, date, source and the organizations it names. Read GDELT's public daily files for every day
-    a company has an open contract. GDELT dates articles to the day, so no time within a day is
-    used anywhere in the project. The pull returned 5,084,070 rows and 4,284,645 distinct URLs in the
-    contract period.
-16. **First name filter.** Keep an article when one of the company's names (step 2) appears as a whole
-    word with exact capitalization, so "Apple" does not match "apple" or "Applebee's".
-17. **Download the text.** GDELT stores no text, so each article is downloaded from the publisher. On
-    Bouchet, 4 parallel jobs each take a quarter of the URLs (split by a hash of the URL), with one
-    connection per website at a time, 24 connections per job, and a 20-second timeout. Pages over
-    5 MB are skipped. The text is extracted from the page's HTML in separate worker processes, so a
-    page that crashes or hangs the extractor (30-second limit) loses only itself. Each block of 500
-    URLs is saved as one file, which is also the point a stopped job resumes from.
-18. **Second name filter.** Right after extraction, check the company's names again in the extracted
-    text (headline, lede and body). Pages that failed and pages without a name keep only their URL
-    and a status, so their text never piles up on disk.
+15. **Find articles.** GDELT is a free database of news articles worldwide. For each article it
+    records the URL, date and source, plus the organizations and names that GDELT's own software
+    found in the text when it crawled the page. Read GDELT's public files (one per 15 minutes) for
+    every day a company has an open contract, keeping only web news (GDELT's collection 1). GDELT
+    dates articles to the day, so no time within a day is used anywhere in the project. The pull
+    scanned 42,522,203 GDELT records from 2025-09-26 to 2026-10-31.
+16. **First name filter, on GDELT's record only.** Keep an article for a company when one of its
+    names (step 2, context names excluded) appears as a whole word with exact capitalization in
+    GDELT's organizations field or its all-names field, on a day the company has an open contract.
+    "Apple" does not match "apple" or "Applebee's". This filter reads only what GDELT recorded: it
+    never reads the URL and fetches nothing. It kept 5,004,614 (URL, company) rows, which is
+    4,296,455 distinct URLs.
+17. **Download the text.** GDELT stores no text, so every URL that passes step 16 is downloaded in
+    full from the publisher; there is no cheaper first pass. On Bouchet, 4 parallel jobs each take a
+    quarter of the URLs (split by a hash of the URL), with one connection per website at a time, 24
+    connections per job, and a 20-second timeout. A page over 5 MB is dropped after it downloads. The
+    text is extracted from the page's HTML in separate worker processes, so a page that crashes or
+    hangs the extractor (30-second limit) loses only itself. Each block of 500 URLs is saved as one
+    file, which is also the point a stopped job resumes from. 4,385,569 URLs were downloaded (this
+    includes about 89,000 from an earlier 2022-2024 pull that nothing now uses), and 3,930,740
+    returned the page.
+18. **Second name filter, on the extracted text.** Right after extraction, look for the names of the
+    companies step 16 flagged for that URL in the page title and the extracted text. Pages that
+    failed and pages without a name keep only their URL and a status, so their text never piles up
+    on disk. 3,484,923 articles passed: 3,446,368 in the contract period and 38,555 from the
+    2022-2024 pull.
 19. **Duplicates.** Remove repeated URLs here. Articles with the same headline on the same day are
     removed after matching (step 34), among matched articles only.
 20. **Result.** The download finished on Bouchet in two runs (the first stopped at its 23-hour limit,
-    the second resumed and finished), leaving 8,843 files. The last scan counted about 2.5 million
-    articles with text.
+    the second resumed and finished), leaving 8,843 files and 3,446,368 contract-period articles with
+    text. Matching (step 22) skips the 2022-2024 rows and Instagram and Facebook pages, which leaves
+    3,314,425 articles that name at least one company.
 
 Built by `scripts/ingest/04_pull_gdelt.py` and `05_fetch_articles.py`, run as Slurm jobs. Stored in
 `data/news/fetched/` on Bouchet.
