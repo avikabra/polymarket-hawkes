@@ -3,14 +3,14 @@
 #SBATCH --partition=gpu
 #SBATCH --gpus=l40s:1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=32G
-#SBATCH --time=1-00:00:00
+#SBATCH --mem=16G
+#SBATCH --time=06:00:00
 #SBATCH --account=pi_btk22
 #SBATCH --output=logs/bouchet_ingest08_%j.out
 #SBATCH --error=logs/bouchet_ingest08_%j.err
 
-# Company matching with Qwen3.5-4B on vLLM: one yes/no question per (article, company) pair, about 1.2 million
-# pairs at about 25 pairs/s (13 to 14 h). Resumes at the first missing chunk, so resubmit if the time limit hits.
+# Company matching with Qwen3.5-4B on vLLM: one question per article ("which of the 61 companies is it about?").
+# Runs in 6-hour pieces so the GPU goes back to the queue between them; each resumes at the first missing chunk.
 # Arguments go to the script:
 #   sbatch scripts/bouchet/ingest_08_map.sbatch --limit 1000
 #   sbatch scripts/bouchet/ingest_08_map.sbatch

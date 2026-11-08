@@ -3,12 +3,11 @@
     python scripts/ingest/09_hand_check.py --draw                 # sample.parquet + labels.html for the current prompt_version
     python scripts/ingest/09_hand_check.py --score labels.json    # precision and recall against the pass bar -> result.json
 
---draw takes 200 articles (2 x hand_check.n_per_group), seeded: 100 with at least one yes answer and 100 with
-no company. The no-company group is half articles the pair filter dropped (a name hit but no pair asked) and
-half articles whose asked pairs were all answered no. The yes group is stratified: each article belongs to the
-stratum of its rarest yes company, and the 100 are dealt round-robin over the strata, so every company with a
-yes gets a share. weight = stratum size / sample size, so weighted counts estimate all articles with a name hit.
-Articles with an asked pair that has no answer yet are left out.
+--draw takes 200 articles (2 x hand_check.n_per_group), seeded: 100 the model matched to at least one company
+and 100 it matched to none. The matched group is stratified: each article belongs to the stratum of its rarest
+company, and the 100 are dealt round-robin over the strata, so every matched company gets a share.
+weight = stratum size / sample size, so weighted counts estimate all asked articles (every article with a
+company name). Articles with no answer yet are left out.
 
 labels.html holds only headline, source, date and text (no model output, no stratum, no weight). Open it in a
 browser, tick the companies each article is primarily about (or none), label all 200, press Export, and pass the
@@ -57,29 +56,17 @@ def draw(pv: str, cfg: dict, seed: int) -> None:
     folder = HAND / pv
     if (folder / "sample.parquet").exists():
         sys.exit(f"{folder / 'sample.parquet'} exists: a drawn sample is never redrawn (labels would no longer match)")
-    ans = map08.read_answers(MAP / pv)
-    pairs = pd.read_parquet(MAP / pv / "hits.parquet")  # written by 08 --scan
-    pairs = pairs.merge(ans[["article_id", "company_id", "answer"]], on=["article_id", "company_id"], how="left")
-    asked = pairs[pairs["asked"]]
-    unanswered = set(asked.loc[asked["answer"].isna(), "article_id"])
-    yes = asked[asked["answer"] == "yes"].groupby("article_id")["company_id"].apply(list)
-    n_asked = asked.groupby("article_id").size()
-    pop = pd.DataFrame({"article_id": pairs["article_id"].unique()})
-    pop = pop[~pop["article_id"].isin(unanswered)]
-    pop["companies"] = pop["article_id"].map(yes).map(lambda x: x if isinstance(x, list) else [])
-    pop["asked"] = pop["article_id"].map(n_asked).fillna(0)
+    pop = map08.read_answers(MAP / pv)[["article_id", "companies"]].reset_index(drop=True)
+    pop["companies"] = pop["companies"].map(list)
     freq = pd.Series([c for cs in pop["companies"] for c in cs]).value_counts()
-    pop["stratum"] = [("co:" + min(cs, key=lambda c: (freq[c], c))) if cs else ("none:no" if n else "none:dropped")
-                      for cs, n in zip(pop["companies"], pop["asked"])]
+    pop["stratum"] = [("co:" + min(cs, key=lambda c: (freq[c], c))) if cs else "none" for cs in pop["companies"]]
     n = cfg["n_per_group"]
     rng = np.random.default_rng(seed)
 
-    has = pop[pop["companies"].map(len) > 0]
-    drop, no = pop[pop["stratum"] == "none:dropped"], pop[pop["stratum"] == "none:no"]
-    need = {"yes": (has, n), "dropped by the filter": (drop, n // 2), "answered no": (no, n - n // 2)}
-    for k, (g, m) in need.items():
-        if len(g) < m:
-            sys.exit(f"need {m} articles that are {k}; have {len(g)}")
+    has, none = pop[pop["companies"].map(len) > 0], pop[pop["stratum"] == "none"]
+    for k, g in (("matched to a company", has), ("matched to none", none)):
+        if len(g) < n:
+            sys.exit(f"need {n} articles {k}; have {len(g)}")
 
     pools = {s: list(rng.permutation(g.index.to_numpy())) for s, g in has.groupby("stratum")}
     order = list(rng.permutation(sorted(pools)))
@@ -88,8 +75,7 @@ def draw(pv: str, cfg: dict, seed: int) -> None:
         for s in order:
             if pools[s] and len(picked) < n:
                 picked.append(pools[s].pop())
-    sample = pd.concat([pop.loc[picked]] + [g.loc[rng.choice(g.index.to_numpy(), m, replace=False)]
-                                            for g, m in (need["dropped by the filter"], need["answered no"])])
+    sample = pd.concat([pop.loc[picked], none.loc[rng.choice(none.index.to_numpy(), n, replace=False)]])
     sample["stratum_size"] = sample["stratum"].map(pop["stratum"].value_counts())
     sample["sample_size"] = sample["stratum"].map(sample["stratum"].value_counts())
     sample["weight"] = sample["stratum_size"] / sample["sample_size"]
@@ -105,8 +91,8 @@ def draw(pv: str, cfg: dict, seed: int) -> None:
     sample[keep].to_parquet(folder / "sample.parquet", index=False)
     write_text(labels_html(sample, pv), folder / "labels.html")
     print(f"{len(sample)} articles ({sum(s.startswith('co:') for s in sample['stratum'].unique())} company strata, "
-          f"{n // 2} dropped by the filter, {n - n // 2} answered no), weights sum {sample['weight'].sum():.0f} "
-          f"of {len(pop)} articles with a name hit -> {folder}/sample.parquet, labels.html")
+          f"{n} matched to none), weights sum {sample['weight'].sum():.0f} "
+          f"of {len(pop)} asked articles -> {folder}/sample.parquet, labels.html")
 
 
 def labels_html(sample: pd.DataFrame, pv: str) -> str:

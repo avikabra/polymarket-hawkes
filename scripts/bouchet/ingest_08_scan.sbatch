@@ -2,14 +2,14 @@
 #SBATCH --job-name=ingest08-scan
 #SBATCH --partition=day
 #SBATCH --cpus-per-task=16
-#SBATCH --mem=64G
+#SBATCH --mem=8G
 #SBATCH --time=03:00:00
 #SBATCH --account=pi_btk22
 #SBATCH --output=logs/bouchet_ingest08scan_%j.out
 #SBATCH --error=logs/bouchet_ingest08scan_%j.err
 
 # CPU step before the GPU matching job: scans every fetch shard for name hits and writes
-# data/news/company_map/<prompt_version>/hits.parquet and questions.parquet, so the GPU job only answers.
+# data/news/company_map/<prompt_version>/questions.parquet (one row per article, full text), so the GPU job only answers.
 #   sbatch scripts/bouchet/ingest_08_scan.sbatch
 
 set -euo pipefail
