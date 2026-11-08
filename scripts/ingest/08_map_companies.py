@@ -144,10 +144,10 @@ def prepare_out(out: Path) -> None:
     """Create the version folder and save its prompt; refuse a changed prompt under the same version."""
     out.mkdir(parents=True, exist_ok=True)
     saved = out / "prompt.txt"
-    if saved.exists() and saved.read_text() != prompt_text(load_companies()):
+    if saved.exists() and saved.read_text() != prompt_text():
         sys.exit(f"{saved} differs from the current prompt or schema: bump llm_map.prompt_version")
     if not saved.exists():
-        saved.write_text(prompt_text(load_companies()))
+        saved.write_text(prompt_text())
 
 
 def run(cfg: dict, out: Path, limit: int | None, retry: bool, stop_after: float | None = None) -> None:
@@ -162,7 +162,7 @@ def run(cfg: dict, out: Path, limit: int | None, retry: bool, stop_after: float 
     path = OUT / out.name / "questions.parquet"  # written by --scan, always under OUT
     n_all = pq.ParquetFile(path).metadata.num_rows
     companies = load_companies()
-    system = system_prompt(companies)
+    system = system_prompt()
     prepare_out(out)
     failed_path = out / "failed.parquet"
     failed = pd.read_parquet(failed_path) if failed_path.exists() else pd.DataFrame(columns=["article_id", "error"])
@@ -187,8 +187,9 @@ def run(cfg: dict, out: Path, limit: int | None, retry: bool, stop_after: float 
 
     tok = AutoTokenizer.from_pretrained(cfg["model"])
     sys_tokens = len(tok(system, add_special_tokens=False)["input_ids"])
-    params = SamplingParams(temperature=cfg["temperature"], seed=cfg["seed"], max_tokens=cfg["max_output_tokens"],
-                            structured_outputs=StructuredOutputsParams(json=schema(companies)))
+    def params(names):  # one answer format per article: only its named companies, or none
+        return SamplingParams(temperature=cfg["temperature"], seed=cfg["seed"], max_tokens=cfg["max_output_tokens"],
+                              structured_outputs=StructuredOutputsParams(json=schema(names)))
     llm = LLM(model=cfg["model"], enable_prefix_caching=True, seed=cfg["seed"],  # the shared system prompt is cached
               max_model_len=sys_tokens + cfg["max_input_tokens"] + cfg["max_output_tokens"] + 64)
     logf = open(Path("logs") / f"{out.parent.name}_{out.name}.log", "a")
@@ -198,14 +199,16 @@ def run(cfg: dict, out: Path, limit: int | None, retry: bool, stop_after: float 
             print(f"stopping before the time limit at {name}; the next run resumes here", flush=True)
             break
         t0 = time.time()
-        convs, cut = [], []
+        convs, cut, offered = [], [], []
         for q in chunk.to_dict("records"):
-            msg, c = fit_message(json.loads(q["hits"]), q["headline"], q["text"], tok, cfg["max_input_tokens"])
+            hits = json.loads(q["hits"])
+            msg, c = fit_message(hits, q["headline"], q["text"], tok, cfg["max_input_tokens"])
+            offered.append([h[0] for h in hits])
             convs.append([{"role": "system", "content": system}, {"role": "user", "content": msg}])
             cut.append(c or q["was_cut"])
         rows, errs, c_in, c_out = [], [], 0, 0
         try:
-            res = llm.chat(convs, params, chat_template_kwargs={"enable_thinking": False}, use_tqdm=False)
+            res = llm.chat(convs, [params(n) for n in offered], chat_template_kwargs={"enable_thinking": False}, use_tqdm=False)
         except Exception as e:  # generation error: the whole chunk is retried with --retry
             res = []
             errs = [{"article_id": a, "error": f"generation: {type(e).__name__}: {e}"[:300]} for a in chunk["article_id"]]
@@ -216,7 +219,7 @@ def run(cfg: dict, out: Path, limit: int | None, retry: bool, stop_after: float 
             try:
                 if o.outputs[0].finish_reason == "length":
                     raise ValueError("output_truncated")
-                ans = parse_answer(o.outputs[0].text, companies)
+                ans = parse_answer(o.outputs[0].text, companies, set(offered[j]))
             except ValueError as e:
                 errs.append({"article_id": a, "error": str(e)[:300]})
                 continue

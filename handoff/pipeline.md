@@ -229,25 +229,29 @@ decides which of the 61 companies, if any, it is about.
     runs once on CPUs so the GPU spends its time only on answering, and it fixes the list and order
     of articles that the GPU jobs resume from (step 28). It writes in blocks of 20,000 articles, so
     memory never holds more than one block, and uses 16 CPUs and 8 GB of memory for at most 3 hours.
-25. **The model.** Qwen3.5-4B, an open language model, answers each question. It runs on one L40S
-    GPU on Bouchet with vLLM in batch mode. A fixed answer format forces the answer to be a list of
-    company names exactly as listed; a name repeated in an answer counts once. Temperature is 0, so the same question
-    always gets the same answer, and the model does no step-by-step thinking.
+25. **The model.** Qwen3.5-4B, an open language model, answers each question. It runs on one GPU on
+    Bouchet with vLLM in batch mode. A fixed answer format, set per article, allows only the
+    companies named in that article, exactly as listed, or an empty list for none; a name repeated
+    in an answer counts once. Temperature is 0, so the same question always gets the same answer,
+    and the model does no step-by-step thinking.
 26. **The instructions** given before every question, word for word:
 
-    > You decide which companies a news article is primarily about, from the list below. A brand
-    > that belongs to a company counts as the company, so an article about one of its brands is an
-    > article about the company, even when the text never mentions the company's own name. A company
-    > counts if it or anything it owns is a main subject of the article: its products, services,
-    > shows, games, subsidiaries, deals, staff moves, stock or earnings. There can be several main
-    > subjects, or none. A company does not count if it is only mentioned in passing: a place
-    > something was posted, sold or streamed while the story is about something else, one name in a
-    > long list, a person's past employer, or a different thing with the same name. Shopping deal
-    > lists, roundups of many unrelated items, and stories about a person or a topic where a
-    > company's product is only the setting count for no company. Answer with the company names
-    > exactly as listed; an empty list means none.
+    > You decide which companies a news article is primarily about. The message lists the
+    > companies whose names appear in the article, with the names found and how often they
+    > appear in the headline and in the text; choose only from that list. A brand that belongs
+    > to a company counts as the company. A company counts only if it, or something it owns, is
+    > what the article is about: the headline or most of the text concerns its products,
+    > services, shows, games, subsidiaries, deals, staff moves, stock or earnings. There can be
+    > several such companies, or none. A company does not count when it is mentioned in passing
+    > in a story about something else: a place something was posted, sold or streamed, a source
+    > of a quote or a figure, one name in a list, a person's past or present employer, or a
+    > different thing with the same name (a town, a word, a person). Obituaries, local news,
+    > shopping deal lists, roundups of many unrelated items, and stories about a person or a
+    > topic where a company's product is only the setting count for no company. Use the counts
+    > as evidence: a company named once or twice in a story about something else is a passing
+    > mention. When in doubt, leave the company out. Answer with the company names exactly as
+    > listed; an empty list means none.
 
-    Below the instructions comes the list of all 61 companies, each with its first five names.
 27. **The question itself**, for an article naming Apple:
 
     ```
@@ -256,7 +260,7 @@ decides which of the 61 companies, if any, it is about.
     Headline: <headline>
     Text: <lede and body, first 2,500 characters>
 
-    Which of the listed companies is this article primarily about?
+    Which of the listed companies is this article primarily about, if any?
     ```
 
     Each company named in the article gets one line, with up to six of the names found. If the
@@ -285,7 +289,7 @@ decides which of the 61 companies, if any, it is about.
     results. If either misses it, the instructions change, the test run repeats, and a fresh 200 is
     drawn.
 32. **Matches.** Each company in an answer becomes one match: article, company, cut flag, model and
-    instruction version (v4).
+    instruction version (v5).
 33. **Clean up.** Articles with no match keep only their URL and status.
 34. **Same-story duplicates.** Among matched articles of the same company, articles with the same
     headline on the same day are one story; the one with the longest text stays.
