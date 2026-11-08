@@ -46,13 +46,15 @@ LADDERS = ["close_ladder", "barrier_ladder"]
 
 def ladder_fit(x: np.ndarray, l: np.ndarray, w: np.ndarray, down: bool):
     """Step 76d: weighted line l = c + m x, x = ln K. Returns (mu, s) or None when b <= 0."""
-    xm, lm = np.average(x, weights=w), np.average(l, weights=w)
-    sxx = (w * (x - xm) ** 2).sum()
-    if sxx <= 0:
+    if np.ptp(x) < 1e-9:  # every rung at one strike: no line
         return None
-    m = (w * (x - xm) * (l - lm)).sum() / sxx
+    xm, lm = np.average(x, weights=w), np.average(l, weights=w)
+    m = (w * (x - xm) * (l - lm)).sum() / (w * (x - xm) ** 2).sum()
     b = m if down else -m
-    return None if b <= 0 else (-(lm - m * xm) / m, 1 / b)
+    if b <= 0:
+        return None
+    mu = xm - lm / m
+    return (mu, 1 / b) if x.min() <= mu <= x.max() else None  # mu is read between the strikes, never extrapolated
 
 
 def contract_rows(t: pd.DataFrame, sign: int, start: int, end: int, ctype: str) -> pd.DataFrame:
@@ -91,9 +93,9 @@ def main() -> None:
             continue
         c = mk.loc[t["market_id"].iat[0]]
         r = contract_rows(t, -1 if c["direction"] == "below" else 1,
-                          int(c["start_ts_utc"].timestamp()), int(c["end_ts_utc"].timestamp()), c["contract_type"])
+                          int(c["start_ts_utc"].timestamp()), int(c["usable_end_ts_utc"].timestamp()), c["contract_type"])
         rows.append(r.assign(company_id=c["company_id"], event_id=c["event_id"], strike=c["strike_lo"],
-                             direction=c["direction"]))
+                             direction=c["direction"], expiry=c["scheduled_end_ts_utc"]))
     r = pd.concat(rows, ignore_index=True)
     r["wy"], r["wm"] = r["w"] * r["dl"], r["w"] * r["dp"]
     k = ["company_id", "day"]
@@ -108,11 +110,15 @@ def main() -> None:
     lr["dir"] = np.where(lr["ctype"] == "close_ladder", "close", np.where(lr["direction"] == "below", "down", "up"))
     flip = (lr["ctype"] == "close_ladder") & (lr["direction"] == "below")  # "below" rung -> "above" rung: 1 - p
     lr["l0"], lr["l1"] = np.where(flip, -lr["l0"], lr["l0"]), np.where(flip, -lr["l1"], lr["l1"])
+    edge = np.log(0.999 / 0.001) - 1e-9  # a rung at the clip only bounds the price; it cannot place the curve
+    lr = lr[(lr["strike"] > 0) & (lr["l0"].abs() < edge) & (lr["l1"].abs() < edge)]
     lad = []
-    for (cid, day, eid, dr), g in lr.groupby(k + ["event_id", "dir"]):
+    for (cid, day, eid, dr, _), g in lr.groupby(k + ["event_id", "dir", "expiry"]):  # a re-listed rung is its own ladder
         if len(g) < 2:
             continue
         x = np.log(g["strike"].to_numpy(float))
+        if not all(g[c].min() <= 0 <= g[c].max() for c in ("l0", "l1")):  # rungs must straddle even odds at both times
+            continue
         f0 = ladder_fit(x, g["l0"].to_numpy(), g["c0"].to_numpy(), dr == "down")
         f1 = ladder_fit(x, g["l1"].to_numpy(), g["c1"].to_numpy(), dr == "down")
         if f0 and f1:

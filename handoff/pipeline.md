@@ -499,13 +499,19 @@ A ladder's rungs are one forecast of the same stock price, so one piece of news 
 together. These steps read that forecast from all rungs at once, instead of averaging their moves.
 
 76a. **Ladders.** A ladder is the rungs of one close-ladder group, or the up-barrier rungs or the
-     down-barrier rungs of one barrier-ladder group (each direction is its own ladder). A "below"
+     down-barrier rungs of one barrier-ladder group (each direction is its own ladder), with the same
+     scheduled end (a barrier strike re-listed after a touch is a new question, so a new ladder).
+     Rungs cut short by a split (step 9) count only up to the split. A "below"
      rung is turned into an "above" rung by taking 1 − p. Rungs follow step 75: open at the midnight
      after D, at least $1,000 traded through D, and at least one trade in the 24 hours; a rung that
      settles inside the 24 hours enters with its last trade before it settled.
 76b. **Prices.** At time t, each rung's price is its last trade before t, in log-odds ℓ_i(t)
      (clipped as in step 13). The same rungs are used at both times (midnight M and M + 24 hours),
-     so a change in which rungs traded cannot move the result. A ladder needs at least 2 such rungs.
+     so a change in which rungs traded cannot move the result. A rung priced at the clip (0.001 or
+     0.999) at either time leaves the fit, because it only says the price is far from its strike, and
+     so does a rung with a strike of $0. A ladder needs at least 2 rungs left, and at both times at
+     least one rung at or above even odds and one at or below, and the fitted μ must lie between the
+     lowest and highest strike, so that μ is read between rungs and never extrapolated beyond them.
 76c. **The curve.** ℓ_i = (μ − ln K_i) / s for a close ladder or an up-barrier ladder, and
      ℓ_i = (ln K_i − μ) / s for a down-barrier ladder, where K_i is the rung's strike and s > 0.
      μ is the log price the market sees as even odds: for a close ladder, its median forecast of the
