@@ -554,7 +554,11 @@ near expiry. ξ puts every contract's move on one scale; ξ̂ is the part the st
 85a. **Diagnostics, training days only.** In bins of price and days left: mean ξ (near 0 if the
      contracts are fairly priced), mean ξ² (equals (true σ / priced σ)², so above 1 means Polymarket
      moves more than its prices imply), and the slope of ξ on ξ̂. They are read, and the half-life,
-     the day definition and any bins to drop are locked, before step 84's test.
+     the day definition and any bins to drop are locked, before step 84's test. Locked: the ξ targets
+     use contracts priced 0.05 to 0.95 at the window start with at most 20 trading days left (at the
+     extremes mean ξ is +0.19 and −0.64 and ξ barely follows ξ̂; beyond 20 days there are 189
+     contracts with mean ξ² of 4.4); half-life 20 days; the midnight day, with option A reported
+     beside it.
 
 ## 10. Fit
 

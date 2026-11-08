@@ -231,6 +231,7 @@ def main():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     ct = pd.read_parquet(f"data/news/xi_contracts{sfx}.parquet", filters=[("day", ">=", TEST_START)])
+    ct = ct[ct["p0"].between(*mod.XI_P) & (ct["tau0"] * 252 <= mod.XI_MAX_DAYS)]  # the locked step 85a filter, as in 13
     ct["day"] = ct["day"].astype("datetime64[ns]")
     px = pd.read_parquet("data/stocks/prices.parquet", columns=["company_id", "date", "adj_close"])
     px["date"] = pd.to_datetime(px["date"]).astype("datetime64[ns]")
