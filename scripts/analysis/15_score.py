@@ -152,15 +152,17 @@ def main():
 
     # step 107: the claim, on log-odds y
     g1 = gaps[(gaps["comparison"] == "u minus E") & (gaps["target"] == "y")].iloc[0]
-    s_b = sh[(sh.method == "msrr") & (sh.predictor == "Sbeta") & (sh.target == "y")].iloc[0]
+    s_b = sh[(sh.method == "msrr") & (sh.predictor == "Sbeta") & (sh.target == "y_money")].iloc[0]
+    t_b = s_b["mean"] / (s_b["sd"] / np.sqrt(s_b["n_days"]))  # t-statistic of the average daily money return
     g3 = gaps[(gaps["comparison"] == "u: Polymarket minus stock")].iloc[0]
     claim = [("pure news Sharpe beats raw news", g1["gap"] > 0, f"gap {g1['gap']:.3f}, log-odds"),
-             ("predictable news earns little", None, f"Sharpe {s_b['sharpe']:.3f}, log-odds"),
+             ("predictable news earns little (|t| of its average daily money return below 1.96)", abs(t_b) < 1.96,
+              f"t {t_b:.2f}, money"),
              ("Polymarket Sharpe beats stock Sharpe on the same news", g3["gap"] > 0, f"gap {g3['gap']:.3f}")]
     out = ["# Test-period results (2026-08-28 to 2026-10-29)", "", "Daily Sharpe ratios, before trading costs.", "",
            "## Claim (step 107)", ""]
-    out += [f"- {'REPORTED' if ok is None else 'HOLDS' if ok else 'FAILS'}: {t} ({n})" for t, ok, n in claim]
-    out += [""]
+    out += [f"- {'HOLDS' if ok else 'FAILS'}: {t} ({n})" for t, ok, n in claim]
+    out += ["", f"Overall: {'claim holds' if all(c[1] for c in claim) else 'claim does not hold'}.", ""]
     for title, t in [("Figure 4: out-of-sample Sharpe ratios by unit (step 95)", fig4.reset_index()),
                      ("Sharpe ratios (steps 93, 96, 97)", sh), ("Gaps of point Sharpe ratios (steps 96, 98)", gaps), ("R2 OOS of the ridge check (step 94)", r2.reset_index()),
                      ("Polymarket on stock (step 99)", pd.DataFrame(follow)),

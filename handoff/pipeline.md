@@ -575,7 +575,9 @@ MSRR Approach"), with a day in place of his month.
 ## 12. Result
 
 107. **The claim holds if,** in the test period: the pure-news portfolio's Sharpe ratio beats raw
-     news; predictable news earns little; and the Polymarket Sharpe exceeds the stock Sharpe on the
+     news; predictable news earns little, meaning the t-statistic of the predictable-news portfolio's
+     average daily money return (step 77), t = mean / (standard deviation / √days), is below 1.96 in
+     absolute value; and the Polymarket Sharpe exceeds the stock Sharpe on the
      same news. Together these say Polymarket prices company news less efficiently than the stock
      market, and steps 104 and 105 say where and by whom.
 108. **Outputs:** `data/news/news_shocks.parquet`, the daily portfolio returns for every predictor and
