@@ -21,7 +21,7 @@ RULES = (
     "several such companies, or none. "
     "A company does not count when it is mentioned in passing in a story about something else: a place something was "
     "posted, sold or streamed, a source of a quote or a figure, one name in a list, a person's past or present employer, "
-    "or a different thing with the same name (a town, a word, a person). Obituaries, local news, shopping deal lists, "
+    "or a different thing with the same name (a town, a word, a person). Obituaries, shopping deal lists, "
     "roundups of many unrelated items, and stories about a person or a topic where a company's product is only the "
     "setting count for no company. Use the counts as evidence: a company named once or twice in a story about "
     "something else is a passing mention. When in doubt, leave the company out. "
