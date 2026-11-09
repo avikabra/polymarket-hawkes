@@ -50,8 +50,6 @@ FLOOR = 1000.0
 BIG = 10000.0
 STRIKE_TYPES = ["close_ladder", "barrier_ladder"]
 HALF_LIVES = [10, 20, 60]
-XI_P = (0.05, 0.95)  # step 85a, locked on training days: xi fails at the price extremes (tick floor)
-XI_MAX_DAYS = 20  # step 85a: beyond 20 trading days left, too few contracts and an unstable mean xi^2
 HIT = re.compile(r"\b(hit|reach|touch|dip)\b")
 
 
@@ -196,7 +194,6 @@ def main() -> None:
     s = s[np.isfinite(s[cols]).all(axis=1)]
     s[["company_id", "day", "cond", "kind", "q0", "q1", "tau0", "tau1", "dt", "xi", "xi_hat_h20", "w", "strike", "S0", "S1", "below", "z0"]].rename(
         columns={"cond": "condition_id", "q0": "p0", "q1": "p1", "w": "weight"}).to_parquet(f"data/news/xi_contracts{sfx}.parquet", index=False)
-    s = s[s["q0"].between(*XI_P) & (s["tau0"] * 252 <= XI_MAX_DAYS)]  # the contract file above keeps every contract
     sw = s[cols].mul(s["w"], axis=0).assign(company_id=s["company_id"], day=s["day"], w=s["w"]).groupby(k)[cols + ["w"]].sum()
     xs = sw[cols].div(sw["w"], axis=0).rename(columns={"xi": "y_xi", "dl": "y_strike"}).reset_index()
     out = out.merge(xs, on=k, how="left")

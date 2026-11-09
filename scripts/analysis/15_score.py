@@ -193,8 +193,8 @@ def main():
     rows = [sharpe_row(s, method=k[0], predictor=k[1], target=k[2], unit=unit(k[2])) for k, s in R.items()]
     sh = pd.DataFrame(rows)
     sh.to_csv(RES / "sharpe.csv", index=False)
-    # step 95: Kelly et al. Figure 4, news shock vs raw news vs predictable news, in money and in log-odds
-    fig4 = sh[(sh.method == "msrr") & sh.predictor.isin(["u", "E", "Sbeta", "u_resid"]) & sh.target.isin(["y_money", "y"])] \
+    # step 95: Kelly et al. Figure 4, news shock vs raw news vs predictable news, in xi (the headline, slide 15), money and log-odds
+    fig4 = sh[(sh.method == "msrr") & sh.predictor.isin(["u", "E", "Sbeta", "u_resid"]) & sh.target.isin(["y_xi", "y_money", "y"])] \
         .pivot(index="predictor", columns="unit", values="sharpe").reindex(["u", "E", "Sbeta", "u_resid"])
     fig4.index = fig4.index.map({"u": "news shock (u)", "E": "raw news (E)", "Sbeta": "predictable news (S beta)",
                                  "u_resid": "news shock residualized on stock returns (u_resid, step 95a)"})
@@ -231,7 +231,6 @@ def main():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     ct = pd.read_parquet(f"data/news/xi_contracts{sfx}.parquet", filters=[("day", ">=", TEST_START)])
-    ct = ct[ct["p0"].between(*mod.XI_P) & (ct["tau0"] * 252 <= mod.XI_MAX_DAYS)]  # the locked step 85a filter, as in 13
     ct["day"] = ct["day"].astype("datetime64[ns]")
     px = pd.read_parquet("data/stocks/prices.parquet", columns=["company_id", "date", "adj_close"])
     px["date"] = pd.to_datetime(px["date"]).astype("datetime64[ns]")

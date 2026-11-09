@@ -36,8 +36,8 @@ Section 5 embeds only the articles that Section 4 matched.
 | Period | Dates | Used for |
 |---|---|---|
 | Stock history | 2020-09-01 to 2026-10-30 | Stock characteristics (beta needs 5 years, momentum 1 year) |
-| Polymarket | 2025-09-26 (first company trade) to 2026-10-30 | Contracts, trades, Polymarket characteristics |
-| Articles | 2025-09-26 to 2026-10-31 | Matching, embeddings, shocks |
+| Polymarket | 2025-09-26 (first company trade) to 2026-10-29 | Contracts, trades, Polymarket characteristics |
+| Articles | 2025-09-26 to 2026-10-29 | Matching, embeddings, shocks |
 | Shocks | About 2025-10-26 to 2026-10-29 | One month after the first trade, so the first month can be estimated |
 | Train | 2025-10-26 to 2026-08-27 | First estimate of the trading model, not scored |
 | Test | 2026-08-28 to 2026-10-29 | Scored once, after everything is locked |
@@ -222,46 +222,75 @@ A name in an article does not make the article about the company: Apple appears 
 stories about apps, phones in films, or someone's former employer. Matching reads each article and
 decides which of the 61 companies, if any, it is about.
 
-21. **The question.** Ask one question per article: which of the 61 companies is this article
-    primarily about? The answer is a list of companies, which can hold several companies or none.
-22. **Which articles are asked.** Every downloaded article with text in which at least one company's
-    name appears. Nothing else decides whether an article is asked: no count, no position in the
-    article. Two kinds of rows are skipped because no later step uses them: rows from GDELT's
-    2022-2024 pull, and Instagram and Facebook pages. An article stored in more than one file is
-    asked once, from its last copy.
+21. **The question.** For each article, the model reads the article and its candidate companies and
+    picks the ones that are main subjects (slide 8). An article can have several or none.
+22. **Candidates.** The companies the GDELT pull tagged for the article (step 16) whose names step 18
+    found in its text. Articles with no candidate, rows from GDELT's 2022-2024 pull, and Instagram and
+    Facebook pages are not asked. An article stored in more than one file is asked once, from its last
+    copy.
 23. **Names found.** A name counts when it appears as a whole word with exact capitalization in the
-    headline, lede or body. A context name (a real brand that also means something else)
-    counts only when a plain name of the same company also appears. For each
-    company named in the article, the scan records the names found, how often they appear in the
-    headline, and how often in the lede and body.
+    headline, lede or body; a context name counts only beside a plain name of the same company. For
+    each candidate, the scan records the names found, how often they appear in the headline, and how
+    often in the lede and body.
 24. **Finding the names.** A CPU job reads the article files in two passes: the first finds each
-    article's last copy, the second records the names found and their counts (step 23), the
+    article's last copy, the second records the candidates, names and counts (steps 22-23), the
     headline, and the lede and body cut to their first 2,500 characters, with a flag when cut. It
-    runs once on CPUs so the GPU spends its time only on answering, and it fixes the list and order
-    of articles that the GPU jobs resume from (step 28). It writes in blocks of 20,000 articles, so
-    memory never holds more than one block, and uses 16 CPUs and 8 GB of memory for at most 3 hours.
-25. **The model.** Qwen3.5-4B, an open language model, answers each question. It runs on one GPU on
-    Bouchet with vLLM in batch mode. A fixed answer format, set per article, allows only the
-    companies named in that article, exactly as listed, or an empty list for none; a name repeated
-    in an answer counts once. Temperature is 0, so the same question always gets the same answer,
-    and the model does no step-by-step thinking.
-26. **The instructions** given before every question, word for word:
+    fixes the list and order of articles that the GPU jobs resume from (step 28), writes in blocks of
+    20,000 articles, and uses 8 CPUs and 8 GB of memory.
+25. **The model.** Qwen3.5-4B on one GPU on Bouchet, with vLLM in batch mode, temperature 0 and no
+    step-by-step thinking. A fixed answer format gives every candidate exactly one verdict: "main
+    subject", "one of the subjects" or "passing". Our structured parsing reads each reply into the
+    list of picked companies: a company is picked when it is the main subject, or one of the subjects
+    and named in the headline.
+26. **The instructions** given before every question, word for word (version v6):
 
-    > You decide which companies a news article is primarily about. The message lists the
-    > companies whose names appear in the article, with the names found and how often they
-    > appear in the headline and in the text; choose only from that list. A brand that belongs
-    > to a company counts as the company. A company counts only if it, or something it owns, is
-    > what the article is about: the headline or most of the text concerns its products,
-    > services, shows, games, subsidiaries, deals, staff moves, stock or earnings. There can be
-    > several such companies, or none. A company does not count when it is mentioned in passing
-    > in a story about something else: a place something was posted, sold or streamed, a source
-    > of a quote or a figure, one name in a list, a person's past or present employer, or a
-    > different thing with the same name (a town, a word, a person). Obituaries, shopping deal
-    > lists, roundups of many unrelated items, and stories about a person or a topic where a
-    > company's product is only the setting count for no company. Use the counts as evidence: a
-    > company named once or twice in a story about something else is a passing mention. When in
-    > doubt, leave the company out. Answer with the company names exactly as listed; an empty
-    > list means none.
+    > You read a news article and judge each company named in it. The message lists those
+    > companies, with the names found (brands belong to their company) and how often each
+    > appears in the headline and in the text. For each company answer "main subject", "one of
+    > the subjects" or "passing". Use "one of the subjects" when the article is about several
+    > companies together, such as a deal, a rivalry, a comparison or several companies doing the
+    > same thing. "main subject" means the article is about that company: the company or one of
+    > its brands is the subject of the headline or of most of the text (its products, services,
+    > shows, films, games, subsidiaries, deals, executives, employees, lawsuits, stock or
+    > earnings). A show, film or game the company owns is its product: an article about that
+    > show, its cast or its plot is about the company, even when the company's own name barely
+    > appears. "passing" means the company is a side detail in a story about something else:
+    > where something was posted, sold or streamed; a social media link, button or quoted post;
+    > a source of a quote or a figure; one name in a list; someone's employer; a client, partner
+    > or example in another firm's press release or notice; a stock named once among a day's
+    > market movers; or a different thing with the same name. An article that recommends, rates
+    > or analyses a company's stock (for example, a list of stocks to buy) is "main subject"
+    > each company whose stock it discusses. When an article is about what several specific
+    > companies did (for example, several tech companies each selling bonds), each of them is
+    > "main subject"; when companies are only examples in a story about a wider topic (a law, a
+    > trend, a market), they are "passing". A story about a person's private life, health or
+    > crimes is "passing" for a company even if the person appears in its show. Obituaries,
+    > accidents and crimes, shopping deals, roundups and stories about a person or a topic are
+    > "passing" for every company unless the company itself is the story. A company named only
+    > once or twice in the text and not in the headline is usually "passing". A company named in
+    > the headline is usually "main subject", unless the headline names it only as a place, a
+    > source or one item in a list. Several companies can be "main subject", and often none is.
+    > When in doubt, answer "passing".  Examples (invented): 1. Headline: "Local bakery wins
+    > state award". Meta named once ("the owner shared the news on Facebook"). Meta: passing. 2.
+    > Headline: "Microsoft cuts 6,000 jobs as it pushes AI spending". Microsoft named 14 times;
+    > Alphabet once ("rivals such as Google"). Microsoft: about. Alphabet: passing. 3. Headline:
+    > "Stocks close higher as oil falls". Apple, Nvidia and Tesla each named once or twice among
+    > the day's movers. All passing. 4. Headline: "Smith & Co. announces class action against
+    > XYZ Corp". Meta and Microsoft named once in the firm's boilerplate. Both passing. 5.
+    > Headline: "Amazon tells staff to return to the office five days a week". Amazon named in
+    > the headline and twice in a short text. Amazon: about. 6. Headline: "'Wednesday' star
+    > teases season 3 twists". Netflix named once, as the show's home. Netflix: about, because
+    > the show is a Netflix product. 7. Headline: "2 dividend stocks to buy and hold: Chevron
+    > and Pfizer". Chevron named 8 times, Pfizer 7. Both about. 9. Headline: "Air fryer deal:
+    > this Amazon-exclusive model is 40% off for Prime members". Amazon named 5 times. Amazon:
+    > passing, because a shopping deal is not news about the company. 10. Headline: "Verzenio
+    > trial cuts cancer recurrence by a third". Eli Lilly named 6 times, Verzenio 9 times. Eli
+    > Lilly: main subject, because a company's drug and its trial results are its product. 11.
+    > Headline: "Google to open new office in Leeds". Alphabet named (as Google) in the headline
+    > and 3 times in the text. Alphabet: main subject. 12. Headline: "Morning radio show: hosts
+    > rank their favourite summer songs". Netflix and Meta each named once in passing. Both
+    > passing. 13. Headline: "Actor, 82, dies at home". Netflix named twice (one of his old
+    > series streamed there). Netflix: passing.
 
 27. **The question itself**, for an article naming Apple:
 
@@ -271,11 +300,11 @@ decides which of the 61 companies, if any, it is about.
     Headline: <headline>
     Text: <lede and body, first 2,500 characters>
 
-    Which of the listed companies is this article primarily about, if any?
+    For each listed company: main subject, one of the subjects, or passing?
     ```
 
-    Each company named in the article gets one line, with up to six of the names found. If the
-    whole question still exceeds 4,096 tokens, the text is cut further and flagged.
+    Each candidate gets one line, with up to six of the names found. If the whole question still
+    exceeds 4,096 tokens, the text is cut further and flagged.
 28. **Running in pieces.** Articles run in blocks of 2,000, and each finished block is saved, so a
     stopped job restarts from the first missing block. Memory holds the model and one block. Each
     job takes one GPU, 4 CPUs and 16 GB of memory for at most 6 hours, and hands the GPU back when
@@ -286,10 +315,10 @@ decides which of the 61 companies, if any, it is about.
 29. **Test run, then full run.** 1,000 random articles run first, to measure speed and to read
     sample answers. The full run starts only after you have seen the test, with its expected GPU
     hours stated beforehand.
-30. **Hand check sample.** Draw 200 articles for you to label, without seeing the model's answers:
-    - 100 the model matched to at least one company, spread across companies by taking turns over
+30. **Hand check sample.** Label 500 articles before seeing the model's answers (slide 8):
+    - 250 the model matched to at least one company, spread across companies by taking turns over
       each article's least common matched company;
-    - 100 the model matched to no company.
+    - 250 the model matched to no company.
 
     Each article carries a weight equal to how many articles its group stands for, so the scores
     describe every asked article, not only the sample. The labelling sheet shows the headline,
@@ -300,10 +329,10 @@ decides which of the 61 companies, if any, it is about.
     "show story" box for this. Precision is the share of the model's matches that you marked right.
     Recall is the share of your marked companies that the model found. Both are weighted (step 30),
     with 95% intervals from 10,000 bootstrap draws. The bar is 95% on both, set before seeing the
-    hand-check results. If either misses it, the instructions change, the test run repeats, and a fresh 200 is
+    hand-check results. If either misses it, the instructions change, the test run repeats, and a fresh 500 is
     drawn.
 32. **Matches.** Each company in an answer becomes one match: article, company, cut flag, model and
-    instruction version (v5).
+    instruction version (v6).
 33. **Clean up.** Articles with no match keep only their URL and status.
 34. **Same-story duplicates.** Among matched articles of the same company, articles with the same
     headline on the same day are one story; the one with the longest text stays.
@@ -554,17 +583,15 @@ near expiry. ξ puts every contract's move on one scale; ξ̂ is the part the st
 85a. **Diagnostics, training days only.** In bins of price and days left: mean ξ (near 0 if the
      contracts are fairly priced), mean ξ² (equals (true σ / priced σ)², so above 1 means Polymarket
      moves more than its prices imply), and the slope of ξ on ξ̂. They are read, and the half-life,
-     the day definition and any bins to drop are locked, before step 84's test. Locked: the ξ targets
-     use contracts priced 0.05 to 0.95 at the window start with at most 20 trading days left (at the
-     extremes mean ξ is +0.19 and −0.64 and ξ barely follows ξ̂; beyond 20 days there are 189
-     contracts with mean ξ² of 4.4); half-life 20 days; the midnight day, with option A reported
-     beside it.
+     the day definition are locked before step 84's test. Locked: half-life 20 days; the midnight
+     day, with option A reported beside it. Every close and touch contract stays in ξ (slide 14).
 
 ## 10. Fit
 
 86. **Portfolio weights.** On day D, give company k the weight w(k,D) = u(k,D) · b, where b is a list
     of 2,560 numbers. Each coordinate j is a small strategy ("bet on companies whose news scores high
-    on j") with daily return F_j(D) = Σ_k u_j(k,D) y(k,D). b blends the 2,560 strategies into the one
+    on j") with daily return F_j(D) = Σ_k u_j(k,D) ξ(k,D), where ξ(k,D) = y_ξ(k,D) is the company's
+    standardized reaction (step 78e, slide 15). b blends the 2,560 strategies into the one
     with the highest Sharpe ratio. This is Kelly's maximum Sharpe ratio regression (MSRR).
 87. **Solving for b:** minimize Σ_D (1 − b·F(D))² + λ b·b over the days before D, which gives
     b̂ = (FᵀF + λI)⁻¹ Fᵀ1. The first term is Kelly's objective, whose solution is the
@@ -582,15 +609,15 @@ near expiry. ξ puts every contract's move on one scale; ξ̂ is the part the st
 
 92. **The trade.** At the midnight after D, for each company with news: if w(k,D) > 0, put w(k,D)
     dollars on the good-news side of its contracts; if w(k,D) < 0, put |w(k,D)| dollars on the
-    bad-news side. Sell 24 hours later. The day's profit is R(D) = Σ_k w(k,D) y(k,D).
+    bad-news side. Sell 24 hours later. The day's return is R(D) = Σ_k w(k,D) ξ(k,D) (slide 15).
 93. **Sharpe ratio** = average daily profit / standard deviation of daily profit: profit per unit of
-    risk. 0 means no edge. Reported per day, in money (step 77, what a trader earns) and in log-odds
-    (step 74).
+    risk. 0 means no edge. Reported per day on the test days, in ξ (slide 15); money (step 77) and
+    log-odds (step 74) are reported beside it as checks.
 94. **For the check in step 91:** R²_OOS = 1 − Σ(y − ŷ)² / Σ y², the share of the moves predicted,
     compared with predicting no move.
 95. **Presentation, as in Kelly et al. Figure 4:** the out-of-sample Sharpe ratios on the test days
-    of the news-shock (u), raw-news (E) and predictable-news (S β̂) strategies, side by side, in
-    money (step 77) and in log-odds (step 74), each number labelled with its unit. Kelly et al.
+    of the news-shock (u), raw-news (E) and predictable-news (S β̂) strategies, side by side, in ξ,
+    with money (step 77) and log-odds (step 74) beside them, each number labelled with its unit. Kelly et al.
     report Sharpe ratios as point values; their intervals and t-statistics are on alphas.
 95a. **The reaction regressions.** The news enters as one number per company-day: ŝ(k,D), the
      out-of-sample ridge prediction of y_ξ from u (step 91). On test days, for each target T in

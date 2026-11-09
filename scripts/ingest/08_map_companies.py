@@ -78,16 +78,18 @@ def scan_shard(path: Path) -> list[tuple]:
     """Per article in one shard: (article_id, question or None); a question is (name hits, headline, text).
     Old training-period rows and Instagram/Facebook pages count as having no text."""
     companies = load_companies()
-    f = pd.read_parquet(path, columns=["url", "period", "headline", "lede", "body"])
+    f = pd.read_parquet(path, columns=["url", "period", "headline", "lede", "body", "names"])
+    owner = {n: c for c in companies for n in c.names}  # a name belongs to one company
     out = []
-    for u, per, h, l, b in zip(f["url"], f["period"], f["headline"], f["lede"], f["body"]):
+    for u, per, h, l, b, found in zip(f["url"], f["period"], f["headline"], f["lede"], f["body"], f["names"]):
         a = article_id(u)
         host = urlparse(u).netloc.lower()
         if not isinstance(b, str) or per == "training" or any(host == d or host.endswith("." + d) for d in DROPPED_DOMAINS):
             out.append((a, None))
             continue
         h, l = [x if isinstance(x, str) else "" for x in (h, l)]  # parquet nulls can be NaN
-        hits = name_hits(h, l, b, companies)
+        cand = {owner[n].id for n in (found if found is not None else []) if n in owner}  # GDELT-tagged, confirmed in text
+        hits = name_hits(h, l, b, [c for c in companies if c.id in cand])
         t = article_text(l, b)
         out.append((a, (json.dumps(hits), h, t[:CFG_CHARS], len(t) > CFG_CHARS) if hits else None))
     return out
@@ -219,7 +221,7 @@ def run(cfg: dict, out: Path, limit: int | None, retry: bool, stop_after: float 
             try:
                 if o.outputs[0].finish_reason == "length":
                     raise ValueError("output_truncated")
-                ans = parse_answer(o.outputs[0].text, companies, set(offered[j]))
+                ans = parse_answer(o.outputs[0].text, companies, json.loads(chunk["hits"].iloc[j]))
             except ValueError as e:
                 errs.append({"article_id": a, "error": str(e)[:300]})
                 continue
