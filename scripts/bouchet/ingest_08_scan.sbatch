@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=ingest08-scan
 #SBATCH --partition=day
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=8
 #SBATCH --mem=8G
-#SBATCH --time=03:00:00
+#SBATCH --time=04:00:00
 #SBATCH --account=pi_btk22
 #SBATCH --output=logs/bouchet_ingest08scan_%j.out
 #SBATCH --error=logs/bouchet_ingest08scan_%j.err
