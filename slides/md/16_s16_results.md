@@ -49,9 +49,9 @@ style: |
 
 <div class="side">
 <ul>
-<li>Each bar is one portfolio fit on training days and scored on test days.</li>
-<li>The portfolios differ only in the news they use.</li>
-<li>Raw news is predictable news plus the shock: <math><mi>E</mi><mo>=</mo><mi>S</mi><mover accent="true"><mi>β</mi><mo>^</mo></mover><mo>+</mo><mi>u</mi></math>.</li>
+<li>Each test day we bet on every company with news. Its news sets the size and side of the bet.</li>
+<li>Each bet earns the company's standardized reaction <math><mi>ξ</mi></math> over the next 24 hours.</li>
+<li>The bars differ only in the news that sets the bets: <math><mi>E</mi><mo>=</mo><mi>S</mi><mover accent="true"><mi>β</mi><mo>^</mo></mover><mo>+</mo><mi>u</mi></math>.</li>
 </ul>
 <table><tr><th>Sharpe ratio</th><th>ξ</th><th>Money</th><th>Log-odds</th></tr>
 <tr><td>News shock</td><td>—</td><td>—</td><td>—</td></tr>
