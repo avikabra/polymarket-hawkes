@@ -3,20 +3,20 @@ marp: true
 theme: default
 paginate: true
 style: |
-    section { font-family: "Helvetica Neue", Arial, sans-serif; padding: 44px 64px; color: #1b2430; }
-    h1 { font-size: 44px; color: #14365d; margin: 0 0 16px 0; }
-    h3 { font-size: 27px; font-weight: 500; line-height: 1.3; margin: 0 0 20px 0; }
-    h4 { font-size: 22px; color: #14365d; margin: 14px 0 6px 0; text-transform: uppercase; letter-spacing: 0.04em; }
-    p { font-size: 22px; margin: 6px 0; }
-    table { font-size: 20px; width: 100%; border-collapse: collapse; }
-    th { background: #14365d; color: #fff; text-align: left; padding: 7px 12px; }
-    td { padding: 8px 12px; border-bottom: 1px solid #d9dee5; vertical-align: top; }
-    td:first-child { width: 14%; white-space: nowrap; font-family: "Times New Roman", Georgia, serif; font-size: 24px; }
-    .eq { font-family: "Times New Roman", Georgia, serif; font-size: 40px; text-align: center; background: #eef3f9; border-left: 6px solid #14365d; padding: 12px 10px; margin: 8px 0 12px 0; }
-    .eq sub { font-size: 26px; }
-    .frac { display: inline-block; vertical-align: middle; text-align: center; margin: 0 4px; }
-    .frac > span { display: block; padding: 0 6px; }
-    .frac > span:first-child { border-bottom: 2px solid #1b2430; }
+  section { font-family: "Inter", sans-serif; padding: 44px 64px; color: #1b2430; }
+  h1 { font-size: 44px; color: #14365d; margin: 0 0 16px 0; }
+  h3 { font-size: 27px; font-weight: 500; line-height: 1.3; margin: 0 0 20px 0; }
+  h4 { font-size: 22px; color: #14365d; margin: 14px 0 6px 0; text-transform: uppercase; letter-spacing: 0.04em; }
+  p { font-size: 22px; margin: 6px 0; }
+  table { font-size: 20px; width: 100%; border-collapse: collapse; }
+  th { background: #14365d; color: #fff; text-align: left; padding: 7px 12px; }
+  td { padding: 8px 12px; border-bottom: 1px solid #d9dee5; vertical-align: top; }
+  td:first-child { width: 14%; white-space: nowrap; font-family: "Times New Roman", Georgia, serif; font-size: 24px; }
+  .eq { font-family: "Times New Roman", Georgia, serif; font-size: 40px; text-align: center; background: #eef3f9; border-left: 6px solid #14365d; padding: 12px 10px; margin: 8px 0 12px 0; }
+  .eq sub { font-size: 26px; }
+  .frac { display: inline-block; vertical-align: middle; text-align: center; margin: 0 4px; }
+  .frac > span { display: block; padding: 0 6px; }
+  .frac > span:first-child { border-bottom: 2px solid #1b2430; }
 
   h1 { margin: 0 0 12px 0; }
   .cols { display: flex; gap: 22px; height: 548px; }
@@ -41,7 +41,7 @@ style: |
   .r .bw { flex: 1; display: flex; align-items: center; gap: 8px; }
   .r .bf { height: 30px; background: #7f98ba; flex: none; }
   .r .bv { font-size: 19px; font-weight: 700; color: #1b2430; }
-  .pm { font-size: 14px; font-weight: 700; color: #14365d; background: #dbe6f3; padding: 1px 7px; margin: 2px 0 0 0; white-space: nowrap; display: inline-block; font-family: "Helvetica Neue", Arial, sans-serif; }
+  .pm { font-size: 14px; font-weight: 700; color: #14365d; background: #dbe6f3; padding: 1px 7px; margin: 2px 0 0 0; white-space: nowrap; display: inline-block; font-family: "Inter", sans-serif; }
   math { font-family: "Latin Modern Math", "STIX Two Math", "Cambria Math", "Times New Roman", serif; font-size: 1.12em; }
   .cr { display: flex; align-items: center; gap: 12px; }
   .cr .cn { width: 160px; flex: none; font-size: 19px; font-weight: 700; color: #14365d; }
@@ -165,6 +165,10 @@ style: |
   .ar { margin-left: 0; width: 30px; text-align: center; color: #14365d; font-size: 18px; line-height: 20px; height: 20px; font-weight: 700; }
   .trk { position: absolute; left: 64px; bottom: 20px; font-size: 16px; color: #5b6573; }
   .trk b { color: #14365d; }
+  section { align-content: start; line-height: normal; }
+  h1 { padding-bottom: 0; border-bottom: none; margin-bottom: 11px; }
+  section::after { display: none; }
+  section::before { content: "13"; position: absolute; font-size: 18px; color: #8a95a3; padding: 0; right: 40px; bottom: 24px; }
 ---
 
 # Polymarket reaction
