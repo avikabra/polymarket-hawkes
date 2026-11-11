@@ -24,7 +24,7 @@ style: |
   .xa { text-align: center; margin-left: 62px; font-size: 16px; color: #5b6573; margin-top: 8px; }
   .side { flex: 1; display: flex; flex-direction: column; justify-content: center; }
   ul { margin: 0; padding-left: 24px; }
-  li { font-size: 21px; line-height: 1.35; margin-bottom: 14px; }
+  li { font-size: 19px; line-height: 1.32; margin-bottom: 10px; }
   table { font-size: 18px; border-collapse: collapse; margin-top: 10px; }
   th { background: #14365d; color: #fff; text-align: left; padding: 5px 14px; }
   td { padding: 5px 14px; border-bottom: 1px solid #d9dee5; color: #5b6573; }
@@ -41,7 +41,7 @@ style: |
 <div class="ct">Daily Sharpe ratio in ξ</div>
 <div class="plot"><div class="yl"><span>Sharpe ratio</span></div>
 <div class="area"><div class="zero"></div><div class="z0">0</div>
-<div class="cats"><div class="cat"><div class="v">—</div></div><div class="cat"><div class="v">—</div></div><div class="cat"><div class="v">—</div></div></div>
+<div class="cats"><div class="cat"><div class="v">…</div></div><div class="cat"><div class="v">…</div></div><div class="cat"><div class="v">…</div></div></div>
 </div></div>
 <div class="xl"><div>News shock<span><math><mi>u</mi></math></span></div><div>Raw news<span><math><mi>E</mi></math></span></div><div>Predictable news<span><math><mi>S</mi><mover accent="true"><mi>β</mi><mo>^</mo></mover></math></span></div></div>
 <div class="xa">Test days: Aug 28 to Oct 29, 2026</div>
@@ -49,14 +49,15 @@ style: |
 
 <div class="side">
 <ul>
-<li>Each test day we bet on every company with news. Its news sets the size and side of the bet.</li>
+<li>On each test day we bet on every company with news. The fit multiplies that news by <math><mover accent="true"><mi>b</mi><mo>^</mo></mover></math> to predict the reaction. The sign of the prediction picks the side and its size sets the stake.</li>
+<li>Example: Nvidia beats earnings and the fit predicts +0.8. We stake 0.8 on Yes in "Nvidia closes above $200". A prediction of −0.3 stakes 0.3 on the bad-news side.</li>
 <li>Each bet earns the company's standardized reaction <math><mi>ξ</mi></math> over the next 24 hours.</li>
-<li>The bars differ only in the news that sets the bets: <math><mi>E</mi><mo>=</mo><mi>S</mi><mover accent="true"><mi>β</mi><mo>^</mo></mover><mo>+</mo><mi>u</mi></math>.</li>
+<li>The three bars use the same fit and differ only in which part of the news sets the bets: <math><mi>E</mi><mo>=</mo><mi>S</mi><mover accent="true"><mi>β</mi><mo>^</mo></mover><mo>+</mo><mi>u</mi></math>.</li>
 </ul>
 <table><tr><th>Sharpe ratio</th><th>ξ</th><th>Money</th><th>Log-odds</th></tr>
-<tr><td>News shock</td><td>—</td><td>—</td><td>—</td></tr>
-<tr><td>Raw news</td><td>—</td><td>—</td><td>—</td></tr>
-<tr><td>Predictable news</td><td>—</td><td>—</td><td>—</td></tr></table>
+<tr><td>News shock</td><td>…</td><td>…</td><td>…</td></tr>
+<tr><td>Raw news</td><td>…</td><td>…</td><td>…</td></tr>
+<tr><td>Predictable news</td><td>…</td><td>…</td><td>…</td></tr></table>
 </div>
 </div>
 
