@@ -64,7 +64,7 @@ style: |
 <div class="a">→</div>
 <div class="box s1"><div class="t">Pick main subjects</div><div class="d">Qwen3.5-4B reads each article and writes which of the companies it names are main subjects.</div></div>
 <div class="a">→</div>
-<div class="box out s1"><div class="t">Matched pairs</div><div class="d">Article-company pairs, passed to Part II.</div></div>
+<div class="box out s1"><div class="t">Matched pairs</div><div class="d" style="white-space:nowrap">Article-company<br>pairs, passed to Part<br>II.</div></div>
 </div></div>
 <div class="lane l2"><div class="tag"><div class="n">II</div><div class="w">Prediction</div></div><div class="flow"><div class="grid2">
 <div class="box in" style="grid-row:1;grid-column:1"><div class="t">Matched pairs</div><div class="d">From Part I.</div></div>
@@ -82,7 +82,7 @@ style: |
 <div class="a" style="grid-row:3;grid-column:4">→</div>
 <div class="box" style="grid-row:3;grid-column:5"><div class="t">Adjusted reaction</div><div class="d">Scaled for every contract, with stock prices used to split out the stock's part.</div></div>
 <div class="br"><div class="ln"></div></div>
-<div class="box span" style="grid-column:7"><div class="t">Fit</div><div class="d">Weights that maximize the Sharpe ratio, fit on Oct 26, 2025 to Aug 27, 2026.</div></div>
+<div class="box span" style="grid-column:7"><div class="t">Fit</div><div class="d" style="white-space:nowrap">Weights that<br>maximize the<br>Sharpe ratio, fit<br>on Oct 26,<br>2025 to Aug<br>27, 2026.</div></div>
 <div class="a span" style="grid-column:8">→</div>
 <div class="box out span" style="grid-column:9"><div class="t">Sharpe ratio</div><div class="d">Average daily profit divided by its standard deviation, on test days Aug 28 to Oct 29, 2026.</div></div>
 </div></div></div>

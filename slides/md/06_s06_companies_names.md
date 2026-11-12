@@ -33,7 +33,7 @@ style: |
   .rd { font-size: 18px; line-height: 1.3; margin-top: 2px; }
   .nrow { display: flex; gap: 16px; align-items: center; flex: 1; padding: 6px 0; border-bottom: 1px solid #d9dee5; }
   .nrow:last-child { border-bottom: none; }
-  .big { font-size: 40px; font-weight: 700; color: #14365d; width: 112px; flex: none; text-align: right; }
+  .big { white-space: nowrap; font-size: 40px; font-weight: 700; color: #14365d; width: 112px; flex: none; text-align: right; }
   .rd2 { font-size: 20px; line-height: 1.32; margin: 2px 0 10px 0; }
   .ex2 { font-size: 19px; line-height: 1.35; margin: 4px 0; }
   .ex2 b { color: #14365d; }
