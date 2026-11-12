@@ -52,11 +52,14 @@ style: |
 
 <div class="side">
 <ul>
-<li>We run the portfolio from slide 16 on each company's stock. The stock's return takes the place of the Polymarket reaction. This repeats the test of Kelly et al. on our news and days.</li>
+<li>We run the portfolio from slide 16 on each company's stock. The stock's return takes the place of the Polymarket reaction.</li>
 <li>Both bars use the money return: dollars earned per dollar bet. Example: a $1 bet that gains 2 cents returns 0.02.</li>
 <li>Polymarket bets run from midnight for 24 hours. Stock bets run from the news day's close to the next day's close.</li>
 <li>A higher Sharpe ratio on Polymarket means Polymarket absorbs the same news more slowly than the stock.</li>
+<li>Quiet days have below-median Polymarket volume the day before. The table gives the Sharpe ratio on quiet days minus busy days. Example: 1.5 minus 0.5 gives 1.0. A positive value means news moves prices more slowly where little money trades.</li>
 </ul>
+<table><tr><th>Polymarket</th><th>Estimate</th><th>95% interval</th></tr>
+<tr><td>Sharpe on quiet minus busy days</td><td>…</td><td>…</td></tr></table>
 </div>
 </div>
 

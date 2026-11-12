@@ -659,26 +659,22 @@ near expiry. ξ puts every contract's move on one scale; ξ̂ is the part the st
      money. This describes trade sizes only. Trade size does not identify the trader: bots split large
      orders, and one trader can place many small bets. A claim about retail versus large traders needs
      wallet addresses, which our trade pull does not store.
-104. **Thin versus busy markets:** split company-days into thirds by Polymarket dollar volume in the 24
-     hours and report the Sharpe ratio in each third. If pure news predicts best in the thinnest
-     third, news is absorbed slowly where little money trades.
-105. **Who trades on the news:** for each company-day, the net money flowing to the good-news side over
-     the 24 hours (buys of it minus sells), split into trades under $1,000 and trades of $1,000 or
-     more. Regress each on the pure-news weight w(k,D): which group trades in the direction pure news
-     points?
-106. **Capacity:** the average money traded in the contracts the strategy holds, which bounds how much
+104. **Quiet versus busy markets:** split company-days at the median of the previous day's Polymarket
+     dollar volume (known before the bet) and report the Sharpe ratio on quiet days minus busy days. If pure news
+     predicts best in the quiet half, news is absorbed slowly where little money trades.
+105. **Capacity:** the average money traded in the contracts the strategy holds, which bounds how much
      it could place without moving prices.
 
 ## 12. Result
 
-107. **The claim holds if,** in the test period: the pure-news portfolio's Sharpe ratio beats raw
+106. **The claim holds if,** in the test period: the pure-news portfolio's Sharpe ratio beats raw
      news; predictable news earns little, meaning the t-statistic of the predictable-news portfolio's
      average daily money return (step 77), t = mean / (standard deviation / √days), is below 1.96 in
      absolute value; and the Polymarket Sharpe exceeds the stock Sharpe on the
      same news. Together these say Polymarket prices company news less efficiently than the stock
-     market, and steps 104 and 105 say where and by whom.
-108. **Outputs:** `data/news/news_shocks.parquet`, the daily portfolio returns for every predictor and
-     market, the tables from steps 93 to 106, and a short write-up for Link.
+     market, and step 104 says where.
+107. **Outputs:** `data/news/news_shocks.parquet`, the daily portfolio returns for every predictor and
+     market, the tables from steps 93 to 105, and a short write-up for Link.
 
 ---
 
