@@ -66,7 +66,7 @@ def load_kept(cols: list[str], ids: set | None = None) -> pd.DataFrame:
     for p in sorted(FETCHED.glob("part-*.parquet")):
         f = pd.read_parquet(p, columns=list(dict.fromkeys(["url", "body"] + cols)))
         f["article_id"] = f["url"].map(article_id)  # normalized URL, so spellings of one URL are one article
-        parts.append(f if ids is None else f[f["article_id"].isin(ids)])
+        parts.append(f if ids is None else f[f["article_id"].map(ids.__contains__)])  # isin(set) rehashes all ids per shard
     f = pd.concat(parts, ignore_index=True).drop_duplicates("article_id", keep="last")  # a retry sits in a later shard
     return f[f["body"].notna()].copy()
 
