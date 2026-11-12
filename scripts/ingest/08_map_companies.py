@@ -271,6 +271,7 @@ def build(out: Path) -> None:
     write_parquet(m[["article_id", "url", "company_id", "cut", "model", "prompt_version"]], MATCHES)
 
     a = art[art["article_id"].isin(m["article_id"])].reset_index(drop=True)  # one row per matched article, read by script 07
+    a[["headline", "lede", "source"]] = a[["headline", "lede", "source"]].fillna("")  # NaN would print as "nan" in the text
     a["text"] = [embedding_text(h, l, b, s, d) for h, l, b, s, d in zip(a["headline"], a["lede"], a["body"], a["source"], a["day"])]
     a["timestamp_precision"] = "day"
     write_parquet(a[["article_id", "url", "period", "day", "source", "headline", "lede", "body", "text",
