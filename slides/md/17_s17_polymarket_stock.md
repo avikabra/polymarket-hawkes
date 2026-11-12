@@ -52,7 +52,7 @@ style: |
 
 <div class="side">
 <ul>
-<li>We run the portfolio from slide 16 on each company's stock, with the stock's return in place of the Polymarket reaction. This repeats the test of Kelly et al. on our news and days.</li>
+<li>We run the portfolio from slide 16 on each company's stock. The stock's return takes the place of the Polymarket reaction. This repeats the test of Kelly et al. on our news and days.</li>
 <li>Both bars use the money return: dollars earned per dollar bet. Example: a $1 bet that gains 2 cents returns 0.02.</li>
 <li>Polymarket bets run from midnight for 24 hours. Stock bets run from the news day's close to the next day's close.</li>
 <li>A higher Sharpe ratio on Polymarket means Polymarket absorbs the same news more slowly than the stock.</li>

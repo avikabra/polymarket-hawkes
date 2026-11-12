@@ -54,7 +54,7 @@ style: |
 <ul>
 <li>On each test day we bet on every company with news. The fit multiplies that news by <math><mover accent="true"><mi>b</mi><mo>^</mo></mover></math> to set the bet. Its sign picks the side and its size sets the stake.</li>
 <li>Each bet earns its size times the company's standardized reaction <math><mi>ξ</mi></math> over the next 24 hours.</li>
-<li>The fit scales the bets so that a training day earns about 1. Example: Nvidia's bet is +0.8 and its reaction <math><mi>ξ</mi></math> is +1.5 standard deviations, so the bet earns 0.8&nbsp;×&nbsp;1.5&nbsp;=&nbsp;1.2.</li>
+<li>The fit scales the bets so that a training day earns about 1. Example: Nvidia's bet is +0.8 and its reaction <math><mi>ξ</mi></math> is +1.5 standard deviations. The bet earns 0.8&nbsp;×&nbsp;1.5&nbsp;=&nbsp;1.2.</li>
 <li>The three bars use the same fit and differ only in which part of the news sets the bets: <math><mi>E</mi><mo>=</mo><mi>S</mi><mover accent="true"><mi>β</mi><mo>^</mo></mover><mo>+</mo><mi>u</mi></math>.</li>
 </ul>
 <table><tr><th>Sharpe ratio</th><th>ξ</th><th>Money</th><th>Log-odds</th></tr>
