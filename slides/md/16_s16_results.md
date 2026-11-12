@@ -1,9 +1,9 @@
 ---
 marp: true
 theme: default
-paginate: false
+paginate: true
 style: |
-  section { font-family: "Helvetica Neue", Arial, sans-serif; padding: 44px 64px; color: #1b2430; }
+  section { font-family: "Inter", sans-serif; padding: 44px 64px; color: #1b2430; }
   h1 { font-size: 44px; color: #14365d; margin: 0 0 22px 0; }
   math { font-family: "Latin Modern Math", "STIX Two Math", "Cambria Math", "Times New Roman", serif; font-size: 1.12em; }
   .cols { display: flex; gap: 40px; height: 520px; }
@@ -19,7 +19,7 @@ style: |
   .cat { width: 130px; text-align: center; }
   .cat .v { font-size: 24px; font-weight: 700; color: #5b6573; margin-top: -40px; height: 40px; }
   .xl { display: flex; justify-content: space-around; margin-left: 62px; padding-top: 10px; border-top: 1px solid #d9dee5; }
-  .xl div { width: 150px; text-align: center; font-size: 18px; font-weight: 700; color: #14365d; line-height: 1.25; }
+  .xl div { width: 180px; text-align: center; font-size: 18px; font-weight: 700; color: #14365d; line-height: 1.25; }
   .xl div span { display: block; font-weight: 400; color: #2c3747; }
   .xa { text-align: center; margin-left: 62px; font-size: 16px; color: #5b6573; margin-top: 8px; }
   .side { flex: 1; display: flex; flex-direction: column; justify-content: center; }
@@ -31,7 +31,10 @@ style: |
   td:first-child { color: #1b2430; font-weight: 700; }
   .trk { position: absolute; left: 64px; bottom: 20px; font-size: 16px; color: #5b6573; }
   .trk b { color: #14365d; }
-  .pn { position: absolute; right: 40px; bottom: 26px; font-size: 16px; color: #8a95a3; }
+  section { align-content: start; line-height: normal; }
+  h1 { padding-bottom: 0; border-bottom: none; margin-bottom: 11px; }
+  section::after { display: none; }
+  section::before { content: "16"; position: absolute; font-size: 18px; color: #8a95a3; padding: 0; right: 40px; bottom: 24px; }
 ---
 
 # Results
@@ -51,7 +54,7 @@ style: |
 <ul>
 <li>On each test day we bet on every company with news. The fit multiplies that news by <math><mover accent="true"><mi>b</mi><mo>^</mo></mover></math> to set the bet. Its sign picks the side and its size sets the stake.</li>
 <li>Each bet earns its size times the company's standardized reaction <math><mi>ξ</mi></math> over the next 24 hours.</li>
-<li>The fit scales the bets so that a training day earns about 1. Example: Nvidia's bet is +0.8 and its reaction <math><mi>ξ</mi></math> is +1.5 standard deviations, so the bet earns 0.8 × 1.5 = 1.2.</li>
+<li>The fit scales the bets so that a training day earns about 1. Example: Nvidia's bet is +0.8 and its reaction <math><mi>ξ</mi></math> is +1.5 standard deviations, so the bet earns 0.8&nbsp;×&nbsp;1.5&nbsp;=&nbsp;1.2.</li>
 <li>The three bars use the same fit and differ only in which part of the news sets the bets: <math><mi>E</mi><mo>=</mo><mi>S</mi><mover accent="true"><mi>β</mi><mo>^</mo></mover><mo>+</mo><mi>u</mi></math>.</li>
 </ul>
 <table><tr><th>Sharpe ratio</th><th>ξ</th><th>Money</th><th>Log-odds</th></tr>
@@ -61,5 +64,4 @@ style: |
 </div>
 </div>
 
-<div class="trk">Results &rsaquo; <b>Sharpe ratio</b></div>
-<div class="pn">16</div>
+<div class="trk">Part II: Prediction &rsaquo; <b>Results</b></div>
