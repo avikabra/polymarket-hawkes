@@ -263,7 +263,7 @@ def build(out: Path) -> None:
     yes = read_answers(out).explode("companies").dropna(subset=["companies"]).rename(columns={"companies": "company_id"})
     art = load_kept(["headline", "lede", "day", "source", "period"], set(yes["article_id"]))
     m = yes.merge(art[["article_id", "url", "headline", "lede", "body", "day"]], on="article_id")
-    m["_h"] = m["headline"].map(normalize_headline)
+    m["_h"] = m["headline"].fillna("").map(normalize_headline)  # missing headlines read as NaN
     m["_len"] = m["lede"].fillna("").str.len() + m["body"].str.len()
     m = m.sort_values(["_len", "url"], ascending=[False, True])
     dup = m.duplicated(["company_id", "day", "_h"]) & (m["_h"] != "")  # same headline, same day, same company: keep the longest
