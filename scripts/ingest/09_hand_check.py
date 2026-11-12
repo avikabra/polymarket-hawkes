@@ -55,8 +55,7 @@ def write_text(text: str, path: Path) -> None:
 
 # ── draw ────────────────────────────────────────────────────────────────────
 
-def draw(pv: str, cfg: dict, seed: int) -> None:
-    folder = HAND / pv
+def draw(pv: str, cfg: dict, seed: int, folder: Path) -> None:
     if (folder / "sample.parquet").exists():
         sys.exit(f"{folder / 'sample.parquet'} exists: a drawn sample is never redrawn (labels would no longer match)")
     pop = map08.read_answers(MAP / pv)[["article_id", "companies"]].reset_index(drop=True)
@@ -210,8 +209,8 @@ def ci(x):
     return [float(np.percentile(x, 2.5)), float(np.percentile(x, 97.5))] if len(x) else [float("nan")] * 2
 
 
-def score(path: str, pv: str, cfg: dict, seed: int) -> None:
-    sp = HAND / pv / "sample.parquet"
+def score(path: str, pv: str, cfg: dict, seed: int, folder: Path) -> None:
+    sp = folder / "sample.parquet"
     if not sp.exists():
         sys.exit(f"{sp} missing: run --draw first")
     sample = pd.read_parquet(sp)
@@ -287,8 +286,8 @@ def score(path: str, pv: str, cfg: dict, seed: int) -> None:
               "n_model_labels": int(m.sum()), "n_true_labels": int(t.sum()), "n_disagreements": len(bad),
               "labels_file": str(path)}
     text = json.dumps(result, indent=1) + "\n"
-    write_text(text, HAND / pv / "result.json")
-    print(f"\nresult -> {HAND / pv / 'result.json'}")
+    write_text(text, folder / "result.json")
+    print(f"\nresult -> {folder / 'result.json'}")
 
 
 def main() -> None:
@@ -296,13 +295,16 @@ def main() -> None:
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--draw", action="store_true")
     g.add_argument("--score", metavar="labels.json")
+    ap.add_argument("--seed", type=int, default=None, help="extra sample with this seed, in <prompt_version>/seed<N>/")
     args = ap.parse_args()
     full = yaml.safe_load(open("config/ingest.yaml"))
     pv, cfg = str(full["llm_map"]["prompt_version"]), full["hand_check"]
+    seed = cfg["seed"] if args.seed is None else args.seed
+    folder = HAND / pv if args.seed is None else HAND / pv / f"seed{seed}"
     if args.draw:
-        draw(pv, cfg, cfg["seed"])
+        draw(pv, cfg, seed, folder)
     else:
-        score(args.score, pv, cfg, cfg["seed"])
+        score(args.score, pv, cfg, seed, folder)
 
 
 if __name__ == "__main__":
