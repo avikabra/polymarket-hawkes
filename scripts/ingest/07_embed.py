@@ -41,12 +41,20 @@ def load_model(name: str, max_tokens: int):
 
 
 def encode(model, texts: list[str], batch_size: int) -> np.ndarray:
-    # longest first, so each batch pads to similar lengths; restore the input order after
-    order = np.argsort([-len(t) for t in texts], kind="stable")
-    vecs = model.encode([texts[i] for i in order], batch_size=batch_size, normalize_embeddings=True,
-                        convert_to_numpy=True, show_progress_bar=True).astype(np.float32)
-    out = np.empty_like(vecs)
-    out[order] = vecs
+    # longest first; each batch holds up to batch_size x max_seq_length padded tokens (the size known
+    # to fit), so short texts go many to a batch; restore the input order after
+    n_tok = [len(x) for x in model.tokenizer(texts, truncation=True, max_length=model.max_seq_length)["input_ids"]]
+    order = np.argsort([-n for n in n_tok], kind="stable")
+    budget, out, i = batch_size * model.max_seq_length, None, 0
+    while i < len(order):
+        b = max(1, budget // n_tok[order[i]])  # the first text in a batch is its longest
+        idx = order[i:i + b]
+        vecs = model.encode([texts[j] for j in idx], batch_size=len(idx), normalize_embeddings=True,
+                            convert_to_numpy=True, show_progress_bar=False).astype(np.float32)
+        if out is None:
+            out = np.empty((len(texts), vecs.shape[1]), dtype=np.float32)
+        out[idx] = vecs
+        i += len(idx)
     return out
 
 
