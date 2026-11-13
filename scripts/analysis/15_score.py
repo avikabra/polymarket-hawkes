@@ -267,7 +267,7 @@ def main():
     w = W[(W["method"] == "msrr") & (W["target"] == "y_xi")].merge(rx[["company_id", "day", "dv_pm_24h"]], on=["company_id", "day"])
     # step 104: quiet = previous day's Polymarket dollar volume below the median over training company-days (known before the test)
     pm = pd.read_parquet("data/news/pm_daily.parquet", columns=["company_id", "day", "dv_pm"])
-    pm["day"] = pd.to_datetime(pm["day"]).dt.normalize() + pd.Timedelta(days=1)  # volume of D-1, dated D
+    pm["day"] = pd.to_datetime(pm["day"]).dt.normalize().astype("datetime64[ns]") + pd.Timedelta(days=1)  # volume of D-1, dated D
     lag = rx[["company_id", "day"]].merge(pm, on=["company_id", "day"], how="left").fillna({"dv_pm": 0.0})  # no trades: $0
     cut = lag.loc[lag["day"] < TEST_START, "dv_pm"].median()
     w = w.merge(lag, on=["company_id", "day"], how="left").fillna({"dv_pm": 0.0})
