@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=ingest07-embed
 #SBATCH --partition=gpu
-#SBATCH --gpus=1
+#SBATCH --gpus=l40s:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=64G
 #SBATCH --time=24:00:00
