@@ -351,7 +351,7 @@ lists. It is what lets news be measured and compared.
     article becomes 2,560 numbers, scaled so the list has length 1.
 36. **Text.** The headline, lede, body, source and date are embedded together, up to 8,192 tokens.
 37. **Which articles.** Only matched articles, after duplicate removal (step 34).
-38. **Run.** On one L40S GPU on Bouchet, in batches of 8, saved in pieces so a stopped job resumes.
+38. **Run.** On one GPU on Bouchet (24 GB is enough), in batches of 2, saved in pieces so a stopped job resumes.
 
 Built by `scripts/ingest/07_embed.py`, run by `scripts/bouchet/ingest_07_embed.sbatch`.
 

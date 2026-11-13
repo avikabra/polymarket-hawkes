@@ -16,7 +16,7 @@ embed:
   model: "Qwen/Qwen3-Embedding-4B"
   max_tokens_article: 8192
   max_tokens_company: 32768   # the model's full context; longer Wikipedia pages are truncated
-  batch_size: 8
+  batch_size: 2               # 2 x 8,192 tokens fits a 24 GB GPU; 8 ran out of memory
 llm_map:                    # scripts/ingest/08_map_companies.py
   model: "Qwen/Qwen3.5-4B"
   max_input_chars: 2500    # lede + body cut to 2,500 characters, as in the tuning run that set the prompt

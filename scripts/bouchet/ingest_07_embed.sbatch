@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=ingest07-embed
 #SBATCH --partition=gpu
-#SBATCH --gpus=l40s:1
+#SBATCH --gpus=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=64G
 #SBATCH --time=24:00:00
@@ -22,7 +22,7 @@ export HF_HOME="$PROJECT_ROOT/.cache/huggingface"
 cd "$PROJECT_ROOT/thesis-ingest"
 mkdir -p logs
 
-BATCH_SIZE="${1:-8}"
+BATCH_SIZE="${1:-2}"
 echo "Node: $(hostname)"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 
