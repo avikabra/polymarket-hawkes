@@ -425,8 +425,8 @@ uses, JKP's own fallback order applies; where every input is missing, the value 
     operating expenses, or gross profit − SG&A, whichever comes first. Profit earned per dollar of
     equity.
 54. **Investment:** A_now / A_one year earlier − 1, with A = total assets. How fast the firm grows.
-55. **Momentum:** (1 + r_{t−11}) × … × (1 + r_{t−1}) − 1, the past year's return skipping the latest
-    month. Needs 12 months of history.
+55. **Momentum:** the price one month ago divided by the price 12 months ago, minus 1: the past year's
+    return skipping the latest month (JKP ret_12_1). Needs 12 months of history.
 56. **Volatility:** the standard deviation of daily excess returns over the last month, at least 15
     days. A month with 10 or more zero-return days is missing.
 57. **Illiquidity (Amihud):** the six-month average of |r_day| / dollar volume_day × 10⁶, at least 60
@@ -603,7 +603,7 @@ near expiry. ξ puts every contract's move on one scale; ξ̂ is the part the st
 90. **Comparisons:** repeat steps 86 to 89 with raw news E and with predictable news S β̂ in place
     of u.
 91. **Check (Kelly's Section 6):** predict y directly by ridge regression, ŷ(k,D) = u(k,D) · c, then
-    bet on the companies with the highest predicted y and against the lowest.
+    bet on the fifth of companies with the highest predicted y and against the lowest fifth.
 
 ## 11. Score
 
@@ -636,14 +636,15 @@ near expiry. ξ puts every contract's move on one scale; ξ̂ is the part the st
 
 97. Run steps 86 to 93 with the stock return y^S (step 78) in place of y, on the same company-days.
     This is Kelly's test on the same news and days.
-98. Compare the two Sharpe ratios. A higher Sharpe on Polymarket means Polymarket absorbs the same
+98. Compare the two Sharpe ratios, both in money: Polymarket's money return (step 77) on the same
+    company-days against the stock return. A higher Sharpe on Polymarket means Polymarket absorbs the same
     news more slowly than the stock market.
 99. **How far Polymarket follows the stock:** across company-days, y = a + c·y^S. c is the log-odds
     move per 1% stock move; R² is the share of Polymarket's move the stock explains. Repeated with
     y_ξ on the stock's standardized return over the same window (ξ̂ of a close contract, step 78d),
     where an efficient close contract has c = 1.
-100. **Pure news: one strategy, two markets.** Each test day, the pure-news strategy decides which
-     companies to bet on and how much (step 92). Apply those same bets to the stock on the same days.
+100. **Pure news: one strategy, two markets.** Each test day, the pure-news strategy fitted on ξ (step 86)
+     decides which companies to bet on and how much (step 92). Apply those same bets to the stock on the same days.
      Both give a daily return per dollar (steps 77 and 78), so the two are directly comparable.
 101. **Regress Polymarket's daily return on the stock's:** Polymarket return = a + c × stock return.
      c asks whether, when pure news pays off in the stock, it also pays off on Polymarket: near 1,
@@ -660,18 +661,18 @@ near expiry. ξ puts every contract's move on one scale; ξ̂ is the part the st
      orders, and one trader can place many small bets. A claim about retail versus large traders needs
      wallet addresses, which our trade pull does not store.
 104. **Quiet versus busy markets:** split company-days at the median of the previous day's Polymarket
-     dollar volume (known before the bet) and report the Sharpe ratio on quiet days minus busy days. If pure news
+     dollar volume, the median taken over training company-days (both known before the bet) and report the Sharpe ratio in ξ on quiet days minus busy days, with a 95% interval from 10,000 resamples of test days. If pure news
      predicts best in the quiet half, news is absorbed slowly where little money trades.
 105. **Capacity:** the average money traded in the contracts the strategy holds, which bounds how much
      it could place without moving prices.
 
 ## 12. Result
 
-106. **The claim holds if,** in the test period: the pure-news portfolio's Sharpe ratio beats raw
+106. **The claim holds if,** in the test period: the pure-news portfolio's Sharpe ratio in ξ beats raw
      news; predictable news earns little, meaning the t-statistic of the predictable-news portfolio's
      average daily money return (step 77), t = mean / (standard deviation / √days), is below 1.96 in
      absolute value; and the Polymarket Sharpe exceeds the stock Sharpe on the
-     same news. Together these say Polymarket prices company news less efficiently than the stock
+     same news, both in money (step 98). Together these say Polymarket prices company news less efficiently than the stock
      market, and step 104 says where.
 107. **Outputs:** `data/news/news_shocks.parquet`, the daily portfolio returns for every predictor and
      market, the tables from steps 93 to 105, and a short write-up for Link.

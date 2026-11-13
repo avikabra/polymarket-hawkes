@@ -1,9 +1,9 @@
-"""Steps 92 to 107: score the test-period portfolios from 14_msrr.py. Run once, after every choice is locked.
+"""Steps 92 to 106: score the test-period portfolios from 14_msrr.py. Run once, after every choice is locked.
 
 Inputs: data/analysis/{portfolio_returns,test_weights,ridge_check}.parquet from 14_msrr.py,
 data/news/reactions.parquet (needs company_id, day, y, y_money, y_stock, y_xi, xi_hat_h*, m_xi_h*, r_std_D_h*,
-r_std_Dm1_h*, g0_h*, dv_pm_24h, flow_small, flow_large), data/news/xi_contracts.parquet and data/stocks/prices.parquet
-(step 95a resampling) and the trade files under data/polymarket/trades (size_usdc, for step 103).
+r_std_Dm1_h*, g0_h*, dv_pm_24h), data/news/pm_daily.parquet (dv_pm, step 104), data/news/xi_contracts.parquet and
+data/stocks/prices.parquet (step 95a resampling) and the trade files under data/polymarket/trades (size_usdc, for step 103).
 
     uv run python scripts/analysis/15_score.py [--day midnight|close]
 
@@ -41,7 +41,7 @@ def sharpe(x):
 
 
 UNIT = {"y": "log-odds (step 74)", "y_same": "log-odds (step 74)", "y_big": "log-odds (step 74)",
-        "y_money": "money (step 77)", "y_money_big": "money (step 77)", "y_stock": "stock return (step 78)",
+        "y_money": "money (step 77)", "y_money_same": "money (step 77)", "y_money_big": "money (step 77)", "y_stock": "stock return (step 78)",
         "y_xi": "xi (step 78c)", "xi_hat_h20": "xi (step 78d)", "m_xi_h20": "xi (step 78e)",
         "y_imp_h20": "log-odds (step 74)", "m_h20": "log-odds (step 74)"}
 
@@ -206,8 +206,8 @@ def main():
         if ("msrr", "u", t) in R and ("msrr", "E", t) in R:
             gaps.append(gap_row(R["msrr", "u", t], R["msrr", "E", t], comparison="u minus E", target=t))
     for p in ["u", "E", "Sbeta", "u_frozen", "u_resid"]:
-        if ("msrr", p, "y_same") in R and ("msrr", p, "y_stock") in R:
-            gaps.append(gap_row(R["msrr", p, "y_same"], R["msrr", p, "y_stock"], comparison=f"{p}: Polymarket minus stock", target="y_same vs y_stock"))
+        if ("msrr", p, "y_money_same") in R and ("msrr", p, "y_stock") in R:  # slide 17: both in money, same company-days
+            gaps.append(gap_row(R["msrr", p, "y_money_same"], R["msrr", p, "y_stock"], comparison=f"{p}: Polymarket minus stock", target="y_money_same vs y_stock"))
     gaps = pd.DataFrame(gaps)
     gaps.to_csv(RES / "gaps.csv", index=False)
 
@@ -238,9 +238,9 @@ def main():
     reg.to_csv(RES / "reaction_regressions.csv", index=False)
     chk.to_csv(RES / "reaction_beta_check.csv", index=False)
 
-    # steps 100 to 102: the pure-news weights (fitted on Polymarket log-odds y) applied to both markets
+    # steps 100 to 102: the pure-news weights (fitted on xi, the slide 16 portfolio) applied to both markets
     # on the same company-days: Polymarket money return (step 77) and stock return (step 78) per day
-    pn = W[(W["method"] == "msrr") & (W["predictor"] == "u") & (W["target"] == "y")] \
+    pn = W[(W["method"] == "msrr") & (W["predictor"] == "u") & (W["target"] == "y_xi")] \
         .merge(rx[["company_id", "day", "y_money", "y_stock"]], on=["company_id", "day"]).dropna(subset=["y_money", "y_stock"])
     daily = pd.DataFrame({"pm": (pn["w"] * pn["y_money"]).groupby(pn["day"]).sum(),
                           "stock": (pn["w"] * pn["y_stock"]).groupby(pn["day"]).sum()})
@@ -263,24 +263,30 @@ def main():
                    "share_1000_plus_count": big.mean(), "share_1000_plus_usd": tr[big].sum() / tr.sum()}]
                  ).to_csv(RES / "trade_sizes.csv", index=False)
 
-    # steps 104 to 106 use the log-odds weights of each predictor (target y)
-    w = W[(W["method"] == "msrr") & (W["target"] == "y")].merge(
-        rx[["company_id", "day", "dv_pm_24h", "flow_small", "flow_large"]], on=["company_id", "day"])
-    w["tercile"] = pd.qcut(w["dv_pm_24h"], 3, labels=["thin", "middle", "busy"])  # step 104
-    ter = []
-    for (p, tc), g in w.groupby(["predictor", "tercile"], observed=True):
-        s = (g["w"] * g["y"]).groupby(g["day"]).sum()
-        ter.append(sharpe_row(s, predictor=p, tercile=tc))
-    pd.DataFrame(ter).to_csv(RES / "volume_terciles.csv", index=False)
+    # steps 104 and 105 use each predictor's xi weights (the slide 16 portfolio)
+    w = W[(W["method"] == "msrr") & (W["target"] == "y_xi")].merge(rx[["company_id", "day", "dv_pm_24h"]], on=["company_id", "day"])
+    # step 104: quiet = previous day's Polymarket dollar volume below the median over training company-days (known before the test)
+    pm = pd.read_parquet("data/news/pm_daily.parquet", columns=["company_id", "day", "dv_pm"])
+    pm["day"] = pd.to_datetime(pm["day"]).dt.normalize() + pd.Timedelta(days=1)  # volume of D-1, dated D
+    lag = rx[["company_id", "day"]].merge(pm, on=["company_id", "day"], how="left").fillna({"dv_pm": 0.0})  # no trades: $0
+    cut = lag.loc[lag["day"] < TEST_START, "dv_pm"].median()
+    w = w.merge(lag, on=["company_id", "day"], how="left").fillna({"dv_pm": 0.0})
+    w["half"] = np.where(w["dv_pm"] < cut, "quiet", "busy")
+    qb = []
+    for p, g in w.groupby("predictor"):
+        s = {h: (gh["w"] * gh["y"]).groupby(gh["day"]).sum() for h, gh in g.groupby("half")}
+        if len(s) < 2:
+            continue
+        both = pd.concat([s["quiet"], s["busy"]], axis=1, keys=["quiet", "busy"])
+        ix = rng.integers(0, len(both), (B, len(both)))  # resample test days
+        bq, bb = both["quiet"].to_numpy()[ix], both["busy"].to_numpy()[ix]
+        gb = np.nanmean(bq, 1) / np.nanstd(bq, 1, ddof=1) - np.nanmean(bb, 1) / np.nanstd(bb, 1, ddof=1)
+        qb.append({"predictor": p, "cutoff_usd": cut, "sharpe_quiet": sharpe(s["quiet"]), "sharpe_busy": sharpe(s["busy"]),
+                   "quiet_minus_busy": sharpe(s["quiet"]) - sharpe(s["busy"]), "lo": np.nanpercentile(gb, 2.5),
+                   "hi": np.nanpercentile(gb, 97.5), "days_quiet": len(s["quiet"]), "days_busy": len(s["busy"])})
+    pd.DataFrame(qb).to_csv(RES / "quiet_busy.csv", index=False)
 
-    flow = []  # step 105: net good-news-side dollars on w
-    for p, g in w[w["predictor"].isin(["u", "E", "Sbeta"])].groupby("predictor"):
-        for f in ["flow_small", "flow_large"]:
-            g2 = g.dropna(subset=[f])
-            flow.append({"predictor": p, "flow": f, **ols(g2["w"], g2[f], g2["day"])})
-    pd.DataFrame(flow).to_csv(RES / "flow_regression.csv", index=False)
-
-    cap = []  # step 106: dollars traded in the contracts held (w != 0)
+    cap = []  # step 105: dollars traded in the contracts held (w != 0)
     for p, g in w.groupby("predictor"):
         h = g[g["w"] != 0]
         cap.append({"predictor": p, "mean_dv_per_position": h["dv_pm_24h"].mean(),
@@ -289,17 +295,17 @@ def main():
                     "median_dv_per_position": h["dv_pm_24h"].median()})
     pd.DataFrame(cap).to_csv(RES / "capacity.csv", index=False)
 
-    # step 107: the claim, on log-odds y
-    g1 = gaps[(gaps["comparison"] == "u minus E") & (gaps["target"] == "y")].iloc[0]
+    # step 106: the claim, in xi (the headline unit, step 93)
+    g1 = gaps[(gaps["comparison"] == "u minus E") & (gaps["target"] == "y_xi")].iloc[0]
     s_b = sh[(sh.method == "msrr") & (sh.predictor == "Sbeta") & (sh.target == "y_money")].iloc[0]
     t_b = s_b["mean"] / (s_b["sd"] / np.sqrt(s_b["n_days"]))  # t-statistic of the average daily money return
     g3 = gaps[(gaps["comparison"] == "u: Polymarket minus stock")].iloc[0]
-    claim = [("pure news Sharpe beats raw news", g1["gap"] > 0, f"gap {g1['gap']:.3f}, log-odds"),
+    claim = [("pure news Sharpe beats raw news", g1["gap"] > 0, f"gap {g1['gap']:.3f}, xi"),
              ("predictable news earns little (|t| of its average daily money return below 1.96)", abs(t_b) < 1.96,
               f"t {t_b:.2f}, money"),
-             ("Polymarket Sharpe beats stock Sharpe on the same news", g3["gap"] > 0, f"gap {g3['gap']:.3f}")]
+             ("Polymarket Sharpe beats stock Sharpe on the same news", g3["gap"] > 0, f"gap {g3['gap']:.3f}, money")]
     out = ["# Test-period results (2026-08-28 to 2026-10-29)", "", "Daily Sharpe ratios, before trading costs.", "",
-           "## Claim (step 107)", ""]
+           "## Claim (step 106)", ""]
     out += [f"- {'HOLDS' if ok else 'FAILS'}: {t} ({n})" for t, ok, n in claim]
     out += ["", f"Overall: {'claim holds' if all(c[1] for c in claim) else 'claim does not hold'}.", ""]
     for title, t in [("Figure 4: out-of-sample Sharpe ratios by unit (step 95)", fig4.reset_index()),
@@ -308,8 +314,7 @@ def main():
                      ("Reaction regressions on s_hat (step 95a); bootstrap holds s_hat fixed", reg),
                      ("beta(y_xi) against beta(xi_hat) + beta(m_xi) (step 95a)", chk),
                      ("Pure news, Polymarket money return on stock return (steps 100-102)", pure),
-                     ("Volume terciles (step 104)", pd.DataFrame(ter)),
-                     ("Flow regressions (step 105)", pd.DataFrame(flow)), ("Capacity (step 106)", pd.DataFrame(cap)),
+                     ("Quiet minus busy days (step 104)", pd.DataFrame(qb)), ("Capacity (step 105)", pd.DataFrame(cap)),
                      ("Trade sizes (step 103, descriptive only)", pd.read_csv(RES / "trade_sizes.csv"))]:
         out += [f"## {title}", "", "```", t.to_string(index=False, float_format=lambda v: f"{v:.4g}"), "```", ""]
     (RES / "summary.md").write_text("\n".join(out))

@@ -44,7 +44,7 @@ OUT = Path("data/analysis")
 TRAIN_END = pd.Timestamp("2026-08-27")   # step 82
 TEST_START = pd.Timestamp("2026-08-28")  # step 83
 TEST_END = pd.Timestamp("2026-10-29")
-MAIN = ["y", "y_money", "y_same", "y_stock", "y_xi", "xi_hat_h20", "m_xi_h20", "y_imp_h20", "m_h20"]   # y_same = y on the y_stock company-days (step 97)
+MAIN = ["y", "y_money", "y_same", "y_money_same", "y_stock", "y_xi", "xi_hat_h20", "m_xi_h20", "y_imp_h20", "m_h20"]   # *_same = Polymarket on the y_stock company-days (step 97)
 PREDICTORS = ["u", "E", "Sbeta", "u_frozen", "u_resid"]
 MIN_FIT = 30  # earlier company-days needed before a residual is formed
 
@@ -151,6 +151,7 @@ def main():
     rx = pd.read_parquet(NEWS / f"reactions{sfx}.parquet")
     rx["day"] = pd.to_datetime(rx["day"]).dt.normalize()
     rx["y_same"] = rx["y"].where(rx["y_stock"].notna())
+    rx["y_money_same"] = rx["y_money"].where(rx["y_stock"].notna())  # slide 17: both markets in money
     extra = [c for c in rx.columns if c in ("y_big", "y_money_big") or c.startswith("y_type_")]
     targets = MAIN + extra
     rets, weights, checks = [], [], []
