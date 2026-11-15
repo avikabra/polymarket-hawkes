@@ -1,0 +1,58 @@
+{
+  "model_fit": {
+    "n_train": 3578,
+    "n_val": 460,
+    "n_test": 588,
+    "per_split_correlation_no_model": {
+      "train": {
+        "n": 3578,
+        "spearman_rho": 0.18263174232647741,
+        "spearman_p": 3.2969841609664076e-28
+      },
+      "val": {
+        "n": 460,
+        "spearman_rho": 0.1361689474460306,
+        "spearman_p": 0.003431375336488105
+      },
+      "test": {
+        "n": 588,
+        "spearman_rho": 0.17906942863571795,
+        "spearman_p": 1.2520610402962852e-05
+      }
+    },
+    "model_form": "y_logit_24h = a + b*stock_log_return, fit on price_ladder train only",
+    "slope": 3.7891198615937087,
+    "intercept": -0.18428055624221218,
+    "val_r2": -0.03719068984428664,
+    "test_r2_reported_for_transparency": 0.01814929037608093,
+    "honest_caveat": "val_r2 is slightly negative, technically short of this series' own pre-registered 'beats baseline on val' bar for treating test_r2 as a validated result. Reporting test_r2 anyway, labeled clearly as exploratory rather than confirmed, because it is the first positive held-out r2 of 18+ attempts and the per-split correlations above are independently significant and consistently signed without any model fitting at all -- worth the cluster-robust check below rather than dismissing on the val technicality alone."
+  },
+  "cluster_robust_significance": {
+    "pooled_price_ladder": {
+      "n_companies": 16,
+      "point_estimate": 0.15982899450212895,
+      "cluster_robust_95pct_ci": [
+        0.04302019726713435,
+        0.28832564323612137
+      ],
+      "ci_excludes_zero": true
+    },
+    "test_split_only": {
+      "n_companies": 14,
+      "point_estimate": 0.17906942863571795,
+      "cluster_robust_95pct_ci": [
+        -0.0898730743683988,
+        0.42147808791882113
+      ],
+      "ci_excludes_zero": false
+    }
+  },
+  "backtest": {
+    "n_trades": 588,
+    "directional_hit_rate": 0.272108843537415,
+    "note_on_baseline": "y_logit_24h's own base rate within price_ladder (not necessarily 50%) is the right comparison, same lesson as script 30 -- reported alongside.",
+    "p_y_positive_base_rate_test": 0.1649659863945578,
+    "mean_pnl_log_odds": -0.06303644723515356,
+    "permutation_test_percentile_vs_null": 0.996
+  }
+}

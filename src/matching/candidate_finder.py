@@ -125,11 +125,19 @@ class CandidateFinder:
             if not in_window:
                 continue
 
+            # pub_at is only set for minute-precision (RSS) articles. GDELT articles
+            # (the overwhelming majority of this corpus) have no real published_at —
+            # gdelt_date (day precision) is computed above and used for the in_window
+            # check, but was previously discarded here instead of being stored, which
+            # left article_published_at NULL for virtually every candidate and broke
+            # every downstream LOCF/reaction-window computation in scripts 12/13.
+            effective_ts = pub_at if pub_at is not None else gdelt_date
+
             candidates.append({
                 "market_id": market_id,
                 "article_id": article_id,
                 "embedding_score": float(score),
-                "article_published_at": pub_at.isoformat() if pub_at is not None else None,
+                "article_published_at": effective_ts.isoformat() if effective_ts is not None else None,
                 "timestamp_precision": meta["timestamp_precision"],
             })
 

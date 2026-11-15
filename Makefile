@@ -1,7 +1,6 @@
 PYTHON       := uv run python
-FOCAL_CONFIG := config/focal.yaml
 
-.PHONY: all focal audit train evaluate report test smoke clean
+.PHONY: all focal audit train evaluate report test smoke clean ingest-names ingest-contracts ingest-trades ingest-gdelt ingest-articles ingest-wikipedia
 
 all: focal
 
@@ -10,7 +9,7 @@ focal: data/analysis/_FOCAL_SUCCESS
 # ── Polymarket pipeline ────────────────────────────────────────────────────────
 
 data/polymarket/universe.parquet:
-	$(PYTHON) scripts/01_discover_universe.py --config $(FOCAL_CONFIG)
+	$(PYTHON) scripts/01_discover_universe.py
 
 data/polymarket/trades/_SUCCESS: data/polymarket/universe.parquet
 	$(PYTHON) scripts/02_pull_trades.py
@@ -18,21 +17,34 @@ data/polymarket/trades/_SUCCESS: data/polymarket/universe.parquet
 data/polymarket/bars_1min/_SUCCESS: data/polymarket/trades/_SUCCESS
 	$(PYTHON) scripts/03_resample_trades.py
 
-# ── News corpus ────────────────────────────────────────────────────────────────
+# ── Ingestion, pull_plan sections 1 to 4 (scripts/ingest) ──────────────────────
+# ARGS passes flags through, e.g. make ingest-gdelt ARGS=--execute
 
-data/news/gdelt_gkg/_SUCCESS: data/polymarket/universe.parquet
-	$(PYTHON) scripts/04_pull_gdelt_corpus.py --config $(FOCAL_CONFIG)
+ingest-names:
+	$(PYTHON) scripts/ingest/01_company_names.py
 
-data/news/feeds/_SUCCESS: data/polymarket/universe.parquet
-	$(PYTHON) scripts/05_pull_category_feeds.py --config $(FOCAL_CONFIG)
+ingest-contracts:
+	$(PYTHON) scripts/ingest/02_pull_contracts.py
 
-# Body text — critical path; blocks analysis embeddings
-data/news/bodies/_SUCCESS: data/news/gdelt_gkg/_SUCCESS data/news/feeds/_SUCCESS
-	$(PYTHON) scripts/06_fetch_article_bodies.py
+ingest-trades:
+	$(PYTHON) scripts/ingest/03_pull_trades.py
+
+ingest-gdelt:
+	$(PYTHON) scripts/ingest/04_pull_gdelt.py $(ARGS)
+
+ingest-articles:
+	$(PYTHON) scripts/ingest/05_fetch_articles.py $(ARGS)
+
+ingest-wikipedia:
+	$(PYTHON) scripts/ingest/06_pull_wikipedia.py
+
+# steps 19 to 21 run on Bouchet: sbatch scripts/bouchet/ingest_07_embed.sbatch
 
 # ── Matching pipeline (BGE-large only) ────────────────────────────────────────
+# Matching embeddings use title+lede only (no body text) — do NOT depend on body-fetch,
+# which itself now depends on verification (09) having run first (see scripts/06 docstring).
 
-data/news/matching_embeddings/_SUCCESS: data/news/bodies/_SUCCESS
+data/news/matching_embeddings/_SUCCESS: data/news/gdelt_gkg/_SUCCESS data/news/feeds/_SUCCESS
 	$(PYTHON) scripts/07_embed_for_matching.py
 
 data/matches/_CANDIDATES_SUCCESS: data/news/matching_embeddings/_SUCCESS
@@ -69,16 +81,23 @@ audit: data/analysis/_FOCAL_SUCCESS
 
 # ── Week 4-6 targets ─────────────────────────────────────────────────────────
 
+# Categories are contract_family values (see scripts/16's _CATEGORIES) — corrected
+# 2026-09-29 from the pre-pivot sports/politics/geopolitics taxonomy, which predates
+# the Weeks 7-9 company-contract pivot and no longer matches this column's values.
 train: data/analysis/_FOCAL_SUCCESS
 	$(PYTHON) scripts/15_build_sequence_dataset.py
 	$(PYTHON) scripts/16_train_linear_baseline.py --category all --embedding shock
 	$(PYTHON) scripts/16_train_linear_baseline.py --category all --embedding raw
-	$(PYTHON) scripts/16_train_linear_baseline.py --category sports --embedding shock
-	$(PYTHON) scripts/16_train_linear_baseline.py --category sports --embedding raw
-	$(PYTHON) scripts/16_train_linear_baseline.py --category politics --embedding shock
-	$(PYTHON) scripts/16_train_linear_baseline.py --category politics --embedding raw
-	$(PYTHON) scripts/16_train_linear_baseline.py --category geopolitics --embedding shock
-	$(PYTHON) scripts/16_train_linear_baseline.py --category geopolitics --embedding raw
+	$(PYTHON) scripts/16_train_linear_baseline.py --category corporate_event --embedding shock
+	$(PYTHON) scripts/16_train_linear_baseline.py --category corporate_event --embedding raw
+	$(PYTHON) scripts/16_train_linear_baseline.py --category price_ladder --embedding shock
+	$(PYTHON) scripts/16_train_linear_baseline.py --category price_ladder --embedding raw
+	$(PYTHON) scripts/16_train_linear_baseline.py --category revenue_ladder --embedding shock
+	$(PYTHON) scripts/16_train_linear_baseline.py --category revenue_ladder --embedding raw
+	$(PYTHON) scripts/16_train_linear_baseline.py --category valuation_ladder --embedding shock
+	$(PYTHON) scripts/16_train_linear_baseline.py --category valuation_ladder --embedding raw
+	$(PYTHON) scripts/16_train_linear_baseline.py --category market_cap_ladder --embedding shock
+	$(PYTHON) scripts/16_train_linear_baseline.py --category market_cap_ladder --embedding raw
 	@echo "Linear baseline complete. Run scripts 17-19 manually on GPU (Colab)."
 	touch models/_TRAIN_LINEAR_SUCCESS
 

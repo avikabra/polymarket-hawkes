@@ -7,7 +7,8 @@ class VerifiedArticle(BaseModel):
     """Per-article analysis record — the primary unit of analysis in D4."""
 
     article_id: str
-    market_id: str
+    group_id: str  # matched contract group (contract_groups.parquet)
+    market_id: str  # fanned-out child market — populated later in Task B
     event_id: str  # cluster ID from dedup (script 10)
 
     # LLM verifier output
@@ -23,7 +24,8 @@ class VerifiedArticle(BaseModel):
     time_to_resolution_days: float | None = None
     volume_24h_usdc: float | None = None
     prior_article_count: int | None = None
-    category: str | None = None  # "nfl" | "nba" | "politics" | "geopolitics"
+    category: str | None = None  # contract_family: "price_ladder" | "market_cap_ladder" |
+    # "valuation_ladder" | "revenue_ladder" | "other_ladder" | "corporate_event"
 
     # Reaction windows — populated by script 12
     y_logit_1h: float | None = None

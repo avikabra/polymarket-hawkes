@@ -1,0 +1,16 @@
+# Contract pull settings (src/ingest/contracts.py, scripts/ingest/02, 03, 03b)
+end_max: "2026-10-31"        # last contract end day (Eastern time), inclusive
+# Step 9 stock splits come from Yahoo's chart endpoint for all 61 companies (script 02),
+# written to paths.splits; there is no hand list.
+splits_from: "2020-01-01"    # first day of the Yahoo split pull, before any company contract
+liquidity:                   # steps 6 and 13, cumulative traded DOLLARS through the day
+  liquid_1k: 1000
+  liquid_10k: 10000
+rate_limit:
+  requests_per_second: 4
+paths:
+  out_dir: "data/polymarket/contracts"
+  closes: "data/stocks/closes.parquet"
+  splits: "data/stocks/splits.parquet"
+  trades: "data/polymarket/trades"
+  daily_volume: "data/polymarket/daily_volume.parquet"

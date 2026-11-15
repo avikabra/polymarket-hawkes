@@ -10,14 +10,14 @@ from src.matching.dedup import cluster_market
 
 def _make_row(
     article_id: str,
-    market_id: str = "m1",
+    group_id: str = "g1",
     pub_at: str = "2024-09-01T12:00:00+00:00",
     precision: str = "minute",
     directional_impact: int = 0,
     news_type: str = "qualitative",
 ) -> dict:
     return {
-        "market_id": market_id,
+        "group_id": group_id,
         "article_id": article_id,
         "article_published_at": pub_at,
         "timestamp_precision": precision,

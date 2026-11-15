@@ -1,0 +1,26 @@
+{
+  "n_train": 2215,
+  "n_val": 391,
+  "n_test": 157,
+  "candidates": {
+    "direction_adjusted_return_only": {
+      "slope": 5.607949129364962,
+      "val_r2": -0.2012607287190593
+    },
+    "vol_time_standardized_shock": {
+      "slope": 0.010002431922511617,
+      "val_r2": -0.391823640729309
+    },
+    "gamma_weighted_raw_return": {
+      "slope": 24.39301531759228,
+      "val_r2": -0.14787518791431475
+    },
+    "full_combined_shock_x_gamma": {
+      "slope": 0.08322925644379485,
+      "val_r2": -0.18585595935961252
+    }
+  },
+  "best_candidate_on_val": "gamma_weighted_raw_return",
+  "beats_baseline_on_val": false,
+  "conclusion": "None of the digital-option-structural forms beat a flat baseline on val. Strike price and time-to-resolution do not explain the instability either."
+}

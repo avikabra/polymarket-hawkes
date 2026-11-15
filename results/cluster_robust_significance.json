@@ -1,0 +1,26 @@
+{
+  "signed_correlation_cluster_robust": {
+    "n_clusters": 74,
+    "n_bootstrap": 5000,
+    "point_estimate_spearman_rho": 0.11885185226804451,
+    "cluster_robust_95pct_ci": [
+      0.04725593329936902,
+      0.18845074942477916
+    ],
+    "ci_excludes_zero": true,
+    "fraction_of_bootstrap_draws_positive": 0.998,
+    "interpretation": "If the cluster-robust CI excludes zero, the original finding survives proper accounting for non-independent (same-company) observations -- the relationship is real but apparently too unstable in sign/magnitude across time to model, which is itself the honest conclusion. If the CI includes zero, the original p~1e-35 significance was likely inflated by treating correlated rows as independent, which would explain why NO functional form has generalized across 12 attempts: there may be nothing stable there to model in the first place."
+  },
+  "signed_correlation_cluster_robust_test_split_only": {
+    "n_clusters": 22,
+    "n_bootstrap": 5000,
+    "point_estimate_spearman_rho": 0.19866570113184662,
+    "cluster_robust_95pct_ci": [
+      0.04941251848756439,
+      0.36564580764490306
+    ],
+    "ci_excludes_zero": true,
+    "fraction_of_bootstrap_draws_positive": 0.9934,
+    "interpretation": "If the cluster-robust CI excludes zero, the original finding survives proper accounting for non-independent (same-company) observations -- the relationship is real but apparently too unstable in sign/magnitude across time to model, which is itself the honest conclusion. If the CI includes zero, the original p~1e-35 significance was likely inflated by treating correlated rows as independent, which would explain why NO functional form has generalized across 12 attempts: there may be nothing stable there to model in the first place."
+  }
+}

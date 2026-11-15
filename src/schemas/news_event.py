@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 class NewsEvent(BaseModel):
     event_id: str
-    market_id: str
+    group_id: str
     canonical_ts: datetime
     timestamp_precision: Literal["minute", "day"]
     member_article_ids: list[str]

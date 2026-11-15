@@ -24,7 +24,7 @@ def _trade(**kwargs):
 def _event(**kwargs):
     defaults = dict(
         event_id="e1",
-        market_id="0xabc",
+        group_id="0xabc",
         canonical_ts=datetime(2024, 9, 1, 12, 0, tzinfo=timezone.utc),
         timestamp_precision="minute",
         member_article_ids=["a1"],
@@ -40,6 +40,7 @@ def _verified(**kwargs):
     defaults = dict(
         article_id="a1",
         market_id="0xabc",
+        group_id="0xabc",
         event_id="e1",
         is_match=True,
         match_strength=0.85,

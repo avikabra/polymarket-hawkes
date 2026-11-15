@@ -1,0 +1,69 @@
+{
+  "interaction_model": {
+    "form": "y_logit_24h = b1*stock_log_return + b2*stock_log_return*(embedding_score - train_mean)",
+    "coefficients": [
+      2.525164514004883,
+      1.2540688350861666
+    ],
+    "train_mean_quality_used_for_centering": 0.6196149529920889,
+    "val_r2": -0.1641711045634766,
+    "prior_6_forms_best_val_r2": -0.09291198996506433,
+    "beats_prior_forms_and_baseline": false,
+    "held_out_test_r2": null,
+    "conclusion": "Interaction model does not beat the best prior form (or a flat baseline) on val, so test was not touched for this formal pooled model. The tier-split analysis below tests the same underlying hypothesis a different, more direct way."
+  },
+  "tier_split_analysis": {
+    "tier_thresholds_from_train": {
+      "low_max": 0.5975798139572144,
+      "high_min": 0.6344174976766109
+    },
+    "test_split_magnitude_correlation_by_tier": {
+      "low": {
+        "n": 68,
+        "spearman_rho": -0.23308731157890183,
+        "spearman_p": 0.055762048259394875,
+        "degenerate": false
+      },
+      "mid": {
+        "n": 281,
+        "spearman_rho": 0.04226111941395236,
+        "spearman_p": 0.48044754687533253,
+        "degenerate": false
+      },
+      "high": {
+        "n": 536,
+        "spearman_rho": -0.13121458492959637,
+        "spearman_p": 0.0023352065491004294,
+        "degenerate": false
+      }
+    },
+    "real_delta_high_minus_low": 0.10187272664930547,
+    "permutation_test": {
+      "n_permutations": 2000,
+      "null_mean_delta": -0.003865686707293211,
+      "null_std_delta": 0.13010506388801896,
+      "real_delta_percentile_vs_null": 0.794,
+      "interpretation": "Fraction of random tier-relabelings with a SMALLER high-minus-low correlation gap than the real one. Close to 1.0 means high-confidence matches show a reliably stronger real-stock relationship than low-confidence matches, not explainable by chance tier assignment."
+    },
+    "supporting_out_of_sample_r2_by_tier": {
+      "low": {
+        "n_train": 3157,
+        "n_test": 68,
+        "slope": 2.6850630196374277,
+        "r2": -0.08421492353849591
+      },
+      "mid": {
+        "n_train": 3157,
+        "n_test": 281,
+        "slope": 2.153940533086865,
+        "r2": -0.05502446521774762
+      },
+      "high": {
+        "n_train": 3157,
+        "n_test": 536,
+        "slope": 2.7725531077145993,
+        "r2": -0.06513513367023238
+      }
+    }
+  }
+}

@@ -12,6 +12,7 @@ class Trade(BaseModel):
     price_raw: float
     log_odds: float
     size_usdc: float
+    size_shares: float | None = None  # shares traded; null in files written before this field
     side: Literal["YES_BUY", "YES_SELL"]
     tx_hash: str
 

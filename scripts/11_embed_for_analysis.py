@@ -50,7 +50,13 @@ def _load_article_meta() -> pd.DataFrame:
             continue
         paths = list(d.rglob("*.parquet"))
         if paths:
-            parts.append(pa.concat_tables([pq.read_table(p) for p in paths]).to_pandas())
+            # pd.read_parquet (not pq.read_table) — the latter routes through pyarrow's
+            # dataset/partition-discovery machinery, which collides on data/news/feeds'
+            # Hive-style `source=<name>/year=/month=/` directories: it infers a
+            # dictionary-typed `source` partition column that conflicts with the file's
+            # own plain-string `source` data column (ArrowTypeError: Unable to merge).
+            # src/news/normalizer.py's loaders already use pd.read_parquet for this reason.
+            parts.append(pd.concat([pd.read_parquet(p) for p in paths], ignore_index=True))
     if not parts:
         return pd.DataFrame()
     df = pd.concat(parts, ignore_index=True)

@@ -1,0 +1,49 @@
+{
+  "reaction_model": {
+    "n_train": 9471,
+    "n_val": 549,
+    "n_test": 885,
+    "forms_compared": [
+      "ols_intercept",
+      "ols_through_origin",
+      "huber_intercept",
+      "winsorized_through_origin",
+      "vol_standardized_through_origin",
+      "price_level_interaction"
+    ],
+    "n_forms_compared_this_script": 6,
+    "val_r2_by_candidate": {
+      "ols_intercept": -0.09291198996506433,
+      "ols_through_origin": -0.16387857459924748,
+      "huber_intercept": -0.15145949864739716,
+      "winsorized_through_origin": -0.17041588288040277,
+      "vol_standardized_through_origin": -0.14612339248499318,
+      "price_level_interaction": -0.15468395279155556
+    },
+    "any_candidate_beats_no_relationship_baseline_on_val": false,
+    "chosen_model": "ols_intercept",
+    "chosen_model_coefficients": [
+      2.347718377678394
+    ],
+    "chosen_model_intercept": -0.07088447292384384,
+    "held_out_test_r2": -0.00879369782127526,
+    "held_out_test_n": 885,
+    "honest_conclusion": "Still no candidate beats a flat baseline out of sample, even after adding literature-motivated extensions (winsorizing, volatility standardization, price-level/boundary-compression interaction). The weak pooled correlation does not appear to reflect a stable, generalizable functional relationship in any of the forms tested.",
+    "backtest_form_note": "No candidate validated on val, so the backtest below uses ols_through_origin (clean, no-intercept sign) rather than the nominal tie-break winner ('ols_intercept'), to avoid an intercept-driven sign artifact."
+  },
+  "pairs_trade_backtest": {
+    "n_trades": 881,
+    "directional_hit_rate": 0.31214528944381387,
+    "directional_hit_rate_baseline": 0.5,
+    "mean_pnl_log_odds_sign_based": -0.045994312228358696,
+    "mean_pnl_log_odds_magnitude_weighted": 0.0036302072965366116,
+    "permutation_test": {
+      "n_permutations": 2000,
+      "real_strategy_percentile_vs_null": 0.5315,
+      "raw_one_sided_p": 0.4685,
+      "n_forms_compared_total": 6,
+      "bonferroni_corrected_p": 1.0,
+      "interpretation": "Bonferroni-corrected for 6 total candidate forms compared across both scripts (per Harvey, Liu & Zhu 2016's point that the conventional significance bar is too lax once the number of specifications tried is accounted for). Significant at 0.05 only if bonferroni_corrected_p < 0.05."
+    }
+  }
+}

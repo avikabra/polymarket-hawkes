@@ -23,14 +23,45 @@ from sklearn.linear_model import RidgeCV
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 
-_CAT_ORDER = ["nfl", "nba", "politics", "geopolitics"]
+# Fixed one-hot column order for the `category` feature, which now holds
+# contract_family values (project pivoted from sports to company contracts —
+# see CLAUDE.md). This MUST be a hardcoded, fixed-at-import-time list — not
+# derived from the data at fit time — because the same list is used to build
+# the design matrix for train, val, and test; if the column set instead came
+# from whatever categories happen to appear in a given split, different
+# splits could produce different column widths/order and silently corrupt
+# the out-of-sample residual computation. Sourced from (must be kept in sync
+# with) the contract_family Literal in src/schemas/market.py:21, which is the
+# closed-set source of truth.
+_CAT_ORDER = [
+    "price_ladder",
+    "market_cap_ladder",
+    "valuation_ladder",
+    "revenue_ladder",
+    "other_ladder",
+    "corporate_event",
+    "other",
+]
 
 # Characteristics columns (must all be numeric after one-hot expansion)
 _CHAR_COLS = ["price_at_article", "time_to_resolution_days", "volume_24h_usdc", "prior_article_count"]
 
 
 def _one_hot_category(df: pd.DataFrame) -> pd.DataFrame:
-    """Add integer columns for each category."""
+    """Add integer columns for each category.
+
+    Raises ValueError on any category value outside _CAT_ORDER instead of
+    silently emitting an all-zero row — an inert all-zero one-hot is exactly
+    the bug this replaces (sports categories against contract_family data),
+    so an unknown value here should fail loudly rather than repeat it.
+    """
+    unknown = set(df["category"].unique()) - set(_CAT_ORDER)
+    if unknown:
+        raise ValueError(
+            f"Unknown category value(s) {sorted(unknown)} not in _CAT_ORDER {_CAT_ORDER}. "
+            "Update _CAT_ORDER (kept in sync with the contract_family Literal in "
+            "src/schemas/market.py) rather than silently dropping them."
+        )
     for cat in _CAT_ORDER:
         df[f"cat_{cat}"] = (df["category"] == cat).astype(float)
     return df
@@ -74,22 +105,30 @@ def purge_by_category(
     train_cutoff = pd.Timestamp(train_before, tz="UTC")
     val_cutoff = pd.Timestamp(val_before, tz="UTC")
 
-    def _split(resolved_at) -> str:
-        if resolved_at is None:
-            return "train"  # default
-        ts = pd.Timestamp(resolved_at)
-        if ts.tzinfo is None:
-            ts = ts.tz_localize("UTC")
-        if ts < train_cutoff:
-            return "train"
-        elif ts < val_cutoff:
-            return "val"
-        else:
-            return "test"
+    def _make_split_fn(t_cutoff: pd.Timestamp, v_cutoff: pd.Timestamp):
+        def _split(resolved_at) -> str:
+            # `is None` alone misses NaT: concatenating an all-None column with a
+            # tz-aware datetime column silently upcasts the None values to NaT
+            # (confirmed 2026-10-13), and `pd.NaT is None` is False, so those rows
+            # fell through to the final `else` ("test") instead of defaulting to
+            # "train" — pd.isna() catches both.
+            if resolved_at is None or pd.isna(resolved_at):
+                return "train"  # default
+            ts = pd.Timestamp(resolved_at)
+            if ts.tzinfo is None:
+                ts = ts.tz_localize("UTC")
+            if ts < t_cutoff:
+                return "train"
+            elif ts < v_cutoff:
+                return "val"
+            else:
+                return "test"
+        return _split
 
-    merged["split"] = merged["market_resolved_at"].apply(_split)
+    merged["split"] = merged["market_resolved_at"].apply(_make_split_fn(train_cutoff, val_cutoff))
 
     result_rows = []
+    _min_train_rows = max(cv_folds, 10)
 
     for cat in merged["category"].unique():
         cat_df = merged[merged["category"] == cat].dropna(subset=_CHAR_COLS)
@@ -97,10 +136,62 @@ def purge_by_category(
             continue
 
         train_df = cat_df[cat_df["split"] == "train"]
+
+        if len(train_df) < _min_train_rows:
+            # The shared global cutoff can starve a smaller/later category of
+            # training data entirely (price_ladder dominates the pooled
+            # quantiles the global cutoff was chosen from — see
+            # reports/novel_math_design.md's split-recalibration note, and
+            # 2026-10-13's revenue_ladder decision). Before giving up, retry
+            # with THIS CATEGORY'S OWN resolution-date quantiles — other
+            # categories that already clear _min_train_rows under the global
+            # cutoff are completely untouched by this fallback, so their
+            # already-reported results don't shift.
+            is_na = cat_df["market_resolved_at"].apply(lambda v: v is None or pd.isna(v))
+            real_dates = pd.to_datetime(cat_df.loc[~is_na, "market_resolved_at"], utc=True)
+            if len(real_dates) >= _min_train_rows:
+                # Rank-based, not a date-VALUE quantile: a quantile on the raw
+                # dates can collapse to a single point when a category's
+                # resolution dates cluster on just a few distinct days
+                # (revenue_ladder: many markets batch-resolve on the same
+                # quarterly date) -- that would make train_cutoff == val_cutoff
+                # and silently leave val empty, which breaks neural-net
+                # checkpoint selection downstream (scripts 17-19 pick the "best"
+                # checkpoint by val loss). Sorting by rank and slicing by row
+                # count guarantees a real ~60/20/20 split regardless of how the
+                # dates are distributed.
+                order = real_dates.sort_values().index
+                n = len(order)
+                train_end, val_end = int(n * 0.6), int(n * 0.8)
+                train_idx, val_idx = set(order[:train_end]), set(order[train_end:val_end])
+
+                def _rank_split(idx: object) -> str:
+                    if idx in train_idx:
+                        return "train"
+                    elif idx in val_idx:
+                        return "val"
+                    else:
+                        return "test"
+
+                cat_df = cat_df.copy()
+                cat_df["split"] = [
+                    "train" if na else _rank_split(idx)
+                    for idx, na in zip(cat_df.index, is_na)
+                ]
+                train_df = cat_df[cat_df["split"] == "train"]
+                val_n = int((cat_df["split"] == "val").sum())
+                test_n = int((cat_df["split"] == "test").sum())
+                print(
+                    f"Category={cat} | global cutoff gave {_min_train_rows - 1} or fewer train rows "
+                    f"— falling back to this category's own rank-based 60/20/20 split "
+                    f"| train_n={len(train_df)} val_n={val_n} test_n={test_n}"
+                )
+
         oos_df = cat_df[cat_df["split"].isin(["val", "test"])]
 
-        if len(train_df) < max(cv_folds, 10):
-            # Not enough data to fit — emit raw embeddings with split label
+        if len(train_df) < _min_train_rows:
+            # Still not enough, even with its own quantiles — genuinely too
+            # little data for this category. Emit raw embeddings with split label.
             for _, row in cat_df.iterrows():
                 emb = np.array(row["analysis_embedding"], dtype=np.float32)
                 result_rows.append({

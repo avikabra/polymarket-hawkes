@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from src.polymarket.gamma import GammaClient
 
@@ -25,21 +25,108 @@ _FIXTURE = {
 }
 
 
-def test_parse_market_nba_finals_is_primary():
+def test_parse_market_no_classification_is_other():
+    # Without a classification, contract_family defaults to "other" and is_primary_sample is False.
     client = GammaClient(cache_dir="/tmp/test_gamma_cache")
     market = client.parse_market(_FIXTURE, category="nba")
-    assert market.is_primary_sample is True
-    assert market.market_type == "championship"
+    assert market.contract_family == "other"
+    assert market.is_primary_sample is False
 
 
-def test_parse_market_single_game_is_primary():
-    # single_game is a primary type in config/focal.yaml; "games" is the real
-    # tag slug the live /events endpoint emits for single-game markets.
-    raw = {**_FIXTURE, "tags": [{"id": 3, "label": "games", "slug": "games"}]}
+def test_parse_market_no_events_field_parent_event_id_is_none():
+    # _FIXTURE has no "events" key at all -- the pre-fix, hardcoded-None case.
     client = GammaClient(cache_dir="/tmp/test_gamma_cache")
-    market = client.parse_market(raw, category="nba")
+    market = client.parse_market(_FIXTURE, category="nba")
+    assert market.parent_event_id is None
+
+
+def test_parse_market_extracts_parent_event_id_from_events_array():
+    # Real /markets responses carry this (confirmed 2026-10-10) -- was never read.
+    fixture = {**_FIXTURE, "events": [{"id": "903770", "slug": "some-event"}]}
+    client = GammaClient(cache_dir="/tmp/test_gamma_cache")
+    market = client.parse_market(fixture, category="nba")
+    assert market.parent_event_id == "903770"
+
+
+def test_parse_market_empty_events_array_parent_event_id_is_none():
+    fixture = {**_FIXTURE, "events": []}
+    client = GammaClient(cache_dir="/tmp/test_gamma_cache")
+    market = client.parse_market(fixture, category="nba")
+    assert market.parent_event_id is None
+
+
+def test_parse_market_uses_first_event_when_multiple():
+    fixture = {**_FIXTURE, "events": [{"id": "111"}, {"id": "222"}]}
+    client = GammaClient(cache_dir="/tmp/test_gamma_cache")
+    market = client.parse_market(fixture, category="nba")
+    assert market.parent_event_id == "111"
+
+
+def test_parse_market_price_ladder_classification():
+    client = GammaClient(cache_dir="/tmp/test_gamma_cache")
+    classification = {
+        "contract_family": "price_ladder",
+        "ladder_metric": "price",
+        "company_name": "Nvidia",
+        "ticker": "NVDA",
+        "company_id": "nvidia",
+    }
+    strike_fields = {
+        "strike_price": 190.0,
+        "strike_direction": "above",
+        "price_expiry_month": "2024-06",
+    }
+    market = client.parse_market(
+        _FIXTURE,
+        classification=classification,
+        strike_fields=strike_fields,
+    )
+    assert market.contract_family == "price_ladder"
     assert market.is_primary_sample is True
-    assert market.market_type == "single_game"
+    assert market.company_name == "Nvidia"
+    assert market.ticker == "NVDA"
+    assert market.company_id == "nvidia"
+    assert market.strike_price == 190.0
+    assert market.strike_direction == "above"
+    assert market.price_expiry_month == "2024-06"
+    assert market.category == "price_ladder"
+
+
+def test_parse_market_valuation_ladder_is_primary():
+    client = GammaClient(cache_dir="/tmp/test_gamma_cache")
+    classification = {
+        "contract_family": "valuation_ladder",
+        "ladder_metric": "valuation",
+        "company_name": "Stripe",
+        "ticker": None,
+        "company_id": "stripe",
+    }
+    strike_fields = {
+        "strike_price": 100e9,
+        "strike_direction": "above",
+        "price_expiry_month": "2025-03",
+    }
+    market = client.parse_market(
+        _FIXTURE,
+        classification=classification,
+        strike_fields=strike_fields,
+    )
+    assert market.contract_family == "valuation_ladder"
+    assert market.is_primary_sample is True
+    assert market.category == "valuation_ladder"
+
+
+def test_parse_market_corporate_event_is_primary():
+    client = GammaClient(cache_dir="/tmp/test_gamma_cache")
+    classification = {
+        "contract_family": "corporate_event",
+        "company_name": "Apple",
+        "ticker": "AAPL",
+        "company_id": "apple",
+    }
+    market = client.parse_market(_FIXTURE, classification=classification)
+    assert market.contract_family == "corporate_event"
+    assert market.is_primary_sample is True
 
 
 def test_parse_market_resolution_from_outcome_prices():

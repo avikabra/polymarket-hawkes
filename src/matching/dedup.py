@@ -1,7 +1,7 @@
 """De-duplicate verified articles per market into NewsEvent clusters.
 
 Clustering criteria (applied in order):
-  1. Same market_id
+  1. Same group_id
   2. Article timestamps within 4 hours of each other
   3. BGE-large cosine similarity > 0.85 (uses matching embeddings, not analysis embeddings)
   4. Overlapping GDELT entities (if available)
@@ -104,7 +104,7 @@ def cluster_market(
     verified_rows: list[dict],
     emb_map: dict[str, np.ndarray],
 ) -> list[NewsEvent]:
-    """Cluster verified articles for a single market → list[NewsEvent]."""
+    """Cluster verified articles for a single contract group → list[NewsEvent]."""
     if not verified_rows:
         return []
 
@@ -143,7 +143,7 @@ def cluster_market(
         clusters.setdefault(find(i), []).append(row)
 
     events = []
-    market_id = verified_rows[0]["market_id"]
+    group_id = verified_rows[0]["group_id"]
     for members in clusters.values():
         canonical_ts, precision = _canonical_ts(members)
         directional_impacts = [m.get("directional_impact", 0) for m in members]
@@ -151,7 +151,7 @@ def cluster_market(
 
         events.append(NewsEvent(
             event_id=str(uuid.uuid4()),
-            market_id=market_id,
+            group_id=group_id,
             canonical_ts=canonical_ts.to_pydatetime(),
             timestamp_precision=precision,
             member_article_ids=[m["article_id"] for m in members],

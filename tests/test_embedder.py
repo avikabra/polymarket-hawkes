@@ -4,8 +4,74 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from src.matching.embedder import BGEEmbedder, DEFAULT_MODEL, EMBED_DIM
+from src.matching.embedder import BGEEmbedder, DEFAULT_MODEL, EMBED_DIM, _build_group_text
 from src.matching.faiss_index import build_index, search
+
+
+def test_build_group_text_corporate_event_uses_member_question():
+    row = {
+        "group_id": "0xabc",
+        "contract_family": "corporate_event",
+        "company_name": "Boeing",
+        "ticker": None,
+        "ladder_metric": None,
+        "price_expiry_month": None,
+        "member_market_ids": ["0xabc"],
+        "strikes": [],
+    }
+    universe_lookup = {
+        "0xabc": {
+            "market_id": "0xabc",
+            "question": "Will Boeing announce a new CEO in 2025?",
+            "description": "Resolves YES if Boeing names a new chief executive.",
+        }
+    }
+    text = _build_group_text(row, universe_lookup)
+    assert text == (
+        "Will Boeing announce a new CEO in 2025? "
+        "Resolves YES if Boeing names a new chief executive."
+    )
+
+
+def test_build_group_text_corporate_event_missing_member_returns_empty():
+    row = {
+        "contract_family": "corporate_event",
+        "member_market_ids": ["0xmissing"],
+    }
+    text = _build_group_text(row, universe_lookup={})
+    assert text == ""
+
+
+def test_build_group_text_ladder_uses_group_columns_not_member_questions():
+    row = {
+        "group_id": "gamestop_market_cap_2024-06",
+        "contract_family": "market_cap_ladder",
+        "company_name": "GameStop",
+        "ticker": "GME",
+        "ladder_metric": "market_cap",
+        "price_expiry_month": "2024-06",
+        "member_market_ids": ["0x1", "0x2"],
+        "strikes": np.array([16.0, 6.0]),
+    }
+    text = _build_group_text(row, universe_lookup={})
+    assert text == "GameStop (GME) market_cap forecast for 2024-06: strikes [6.0, 16.0]"
+    # Member questions must not appear — group columns only.
+    assert "0x1" not in text and "0x2" not in text
+
+
+def test_build_group_text_ladder_private_company_no_ticker():
+    row = {
+        "contract_family": "valuation_ladder",
+        "company_name": "Databricks",
+        "ticker": None,
+        "ladder_metric": "valuation",
+        "price_expiry_month": "2025-01",
+        "member_market_ids": ["0x1"],
+        "strikes": [50e9],
+    }
+    text = _build_group_text(row, universe_lookup={})
+    assert "(private)" in text
+    assert "Databricks" in text
 
 
 @pytest.fixture(scope="module")

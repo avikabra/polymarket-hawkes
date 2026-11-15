@@ -42,12 +42,17 @@ def _make_synthetic_df() -> pd.DataFrame:
             "market_id": market_id,
             "shock_embedding": emb,
             "raw_embedding": raw,
-            "category": "nfl",
+            "category": "corporate_event",
             "split": split,
             "canonical_ts": ts,
             "parent_event_id": f"event_{i % 3}",
             "y_logit_6h": float(_RNG.standard_normal(1)[0]),
             "valid_6h": valid,
+            # 24h is the real default target (see src.training.dataset.DEFAULT_TARGET);
+            # reuse the same validity flag, distinct value, for the tests below that
+            # don't care which window they're exercising.
+            "y_logit_24h": float(_RNG.standard_normal(1)[0]),
+            "valid_24h": valid,
             "news_type": "quantitative",
             "directional_impact": int(_RNG.choice([-1, 0, 1])),
         })
@@ -82,7 +87,10 @@ def test_article_dataset_shape(synthetic_parquet):
 def test_valid_6h_filter(synthetic_parquet, synthetic_df):
     """Rows with valid_6h=False must be excluded."""
     # 3 invalid rows, all in train (indices 10, 20, 30 → in train split)
-    ds = ArticleDataset(parquet_path=synthetic_parquet, split="train", embedding_col="shock_embedding")
+    ds = ArticleDataset(
+        parquet_path=synthetic_parquet, split="train", embedding_col="shock_embedding",
+        target="y_logit_6h",
+    )
     invalid_count = len(
         synthetic_df[(synthetic_df["split"] == "train") & (~synthetic_df["valid_6h"])]
     )
@@ -157,7 +165,7 @@ def test_no_temporal_leakage(synthetic_parquet):
         # The dataset itself doesn't expose canonical_ts, but we can verify via
         # the underlying data contract: all train rows were set to _BASE_TS + i * 3600
         # which is well before _TRAIN_CUTOFF. Just check the dataset loads cleanly.
-        assert "y_logit_6h" in item
+        assert "target" in item
         assert "mask" in item
 
     # Cross-check from the raw dataframe
@@ -174,6 +182,7 @@ def test_sequence_dataset_valid_6h_filter(synthetic_parquet, synthetic_df):
         parquet_path=synthetic_parquet,
         split="train",
         K=K,
+        target="y_logit_6h",
     )
     valid_train = len(
         synthetic_df[(synthetic_df["split"] == "train") & (synthetic_df["valid_6h"] == True)]  # noqa: E712

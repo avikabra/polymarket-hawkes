@@ -39,7 +39,7 @@ def _make_batch(d: int = D, k: int = K, batch_size: int = B) -> dict:
         "mask": mask,
         "lengths": torch.full((batch_size,), seq_len, dtype=torch.long),
         "timestamps": torch.rand(batch_size, seq_len),
-        "y_logit_6h": torch.randn(batch_size),
+        "target": torch.randn(batch_size),
     }
 
 
@@ -123,7 +123,7 @@ def test_dict_model_fallback():
     """Unrecognised models receive the full batch dict (keeps test_trainer.py working)."""
     class _DictModel(nn.Module):
         def forward(self, batch: dict) -> torch.Tensor:
-            return batch["y_logit_6h"].unsqueeze(-1)
+            return batch["target"].unsqueeze(-1)
 
     out = batch_forward(_DictModel(), _make_batch(), torch.device("cpu"), "shock")
     assert out.shape == (B, 1)

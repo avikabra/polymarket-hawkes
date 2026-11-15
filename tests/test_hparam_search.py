@@ -122,7 +122,7 @@ def _make_tiny_parquet(path: Path, d: int = _INPUT_DIM, n: int = 60) -> None:
     """Write a minimal shock_embeddings.parquet for smoke testing."""
     rng = np.random.default_rng(42)
     rows = []
-    cats = ["nfl"] * (n // 2) + ["politics"] * (n // 2)
+    cats = ["corporate_event"] * (n // 2) + ["price_ladder"] * (n // 2)
     splits = (["train"] * (n // 3) + ["val"] * (n // 3) + ["test"] * (n // 3))
     splits = (splits + splits)[:n]  # ensure exactly n rows
     for i in range(n):

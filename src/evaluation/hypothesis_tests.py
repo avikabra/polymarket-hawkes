@@ -69,13 +69,23 @@ def compute_h1(metrics_df: pd.DataFrame, bootstrap_df: pd.DataFrame) -> dict:
 # H2: best architecture differs by category
 # ---------------------------------------------------------------------------
 
+# purging.py's _CAT_ORDER (the closed-set schema domain, from the contract_family
+# Literal in src/schemas/market.py) also declares "other_ladder" and "other" —
+# these 5 are the categories actually observed with real rows in the corpus as
+# of the 2026-09-29 Bouchet run (scripts/14_feasibility_gate.py's per-category
+# output never showed them). Verify against real data before trusting this list
+# if the universe has since been expanded (see novel_math_design.md item 5).
+_CATEGORIES = ["corporate_event", "price_ladder", "revenue_ladder", "valuation_ladder", "market_cap_ladder"]
+
+
 def compute_h2(metrics_df: pd.DataFrame, bootstrap_df: pd.DataFrame) -> dict:
     """H2: best architecture differs by category.
 
-    Returns 4x3 R² matrix (rows=categories, cols=archs) + per-column winner
-    + whether CIs for sports winner and geopolitics winner are non-overlapping.
+    Returns 5x3 R² matrix (rows=categories, cols=archs) + per-column winner
+    + whether CIs for the best-performing category's winning arch and the
+    worst-performing category's winning arch (by R²) are non-overlapping.
     """
-    categories = ["sports", "politics", "geopolitics"]
+    categories = _CATEGORIES
     archs = ["lstm", "transformer", "tcn"]
 
     r2_matrix: dict[str, dict[str, float]] = {}
@@ -99,7 +109,8 @@ def compute_h2(metrics_df: pd.DataFrame, bootstrap_df: pd.DataFrame) -> dict:
 
     archs_differ = len(set(winners.values())) > 1
 
-    # CI non-overlap check: sports winner vs geopolitics winner
+    # CI non-overlap check: best-performing category's winning arch vs
+    # worst-performing category's winning arch (by R²).
     def _get_ci(cat: str, arch: str) -> tuple[float, float]:
         mask = (
             (bootstrap_df["category"] == cat)
@@ -111,13 +122,17 @@ def compute_h2(metrics_df: pd.DataFrame, bootstrap_df: pd.DataFrame) -> dict:
             return (float("nan"), float("nan"))
         return float(rows["ci_lower"].iloc[0]), float(rows["ci_upper"].iloc[0])
 
-    sports_arch = winners.get("sports", archs[0])
-    geo_arch = winners.get("geopolitics", archs[0])
-    ci_sports = _get_ci("sports", sports_arch)
-    ci_geo = _get_ci("geopolitics", geo_arch)
+    winning_r2 = {cat: r2_matrix[cat][winners[cat]] for cat in categories}
+    best_category = max(winning_r2, key=lambda c: winning_r2[c] if not np.isnan(winning_r2[c]) else -np.inf)
+    worst_category = min(winning_r2, key=lambda c: winning_r2[c] if not np.isnan(winning_r2[c]) else np.inf)
+
+    best_arch = winners[best_category]
+    worst_arch = winners[worst_category]
+    ci_best = _get_ci(best_category, best_arch)
+    ci_worst = _get_ci(worst_category, worst_arch)
 
     cis_non_overlapping = (
-        ci_sports[1] < ci_geo[0] or ci_geo[1] < ci_sports[0]
+        ci_best[1] < ci_worst[0] or ci_worst[1] < ci_best[0]
     )
 
     return {
@@ -125,8 +140,10 @@ def compute_h2(metrics_df: pd.DataFrame, bootstrap_df: pd.DataFrame) -> dict:
         "r2_matrix": r2_matrix,
         "winners": winners,
         "archs_differ": archs_differ,
-        "ci_sports": {"lower": ci_sports[0], "upper": ci_sports[1]},
-        "ci_geopolitics": {"lower": ci_geo[0], "upper": ci_geo[1]},
+        "best_category": best_category,
+        "worst_category": worst_category,
+        "ci_best": {"lower": ci_best[0], "upper": ci_best[1]},
+        "ci_worst": {"lower": ci_worst[0], "upper": ci_worst[1]},
         "cis_non_overlapping": cis_non_overlapping,
         "supported": bool(archs_differ and cis_non_overlapping),
     }
@@ -172,11 +189,20 @@ def compute_h3(linear_test_df: pd.DataFrame) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# H4: geopolitics R² > sports R² using best arch per category
+# H4: best ladder category R² > corporate_event R² using best arch per category
 # ---------------------------------------------------------------------------
 
+_LADDER_CATEGORIES = [c for c in _CATEGORIES if c != "corporate_event"]
+
+
 def compute_h4(metrics_df: pd.DataFrame, bootstrap_df: pd.DataFrame) -> dict:
-    """H4: geopolitics R² > sports R² using best arch per category."""
+    """H4: best-of-the-ladder-categories R² > corporate_event R², using best arch per category.
+
+    Among the ladder categories (price_ladder, revenue_ladder, valuation_ladder,
+    market_cap_ladder), picks whichever single category achieves the highest
+    R² with its best arch (no aggregation across ladder categories), then
+    compares its CI against corporate_event's CI.
+    """
 
     def _best_r2(cat: str) -> tuple[str, float]:
         mask = (
@@ -200,21 +226,27 @@ def compute_h4(metrics_df: pd.DataFrame, bootstrap_df: pd.DataFrame) -> dict:
             return (float("nan"), float("nan"))
         return float(rows["ci_lower"].iloc[0]), float(rows["ci_upper"].iloc[0])
 
-    geo_arch, r2_geo = _best_r2("geopolitics")
-    sports_arch, r2_sports = _best_r2("sports")
-    delta_r2 = r2_geo - r2_sports
+    ladder_results = {cat: _best_r2(cat) for cat in _LADDER_CATEGORIES}
+    best_ladder_category = max(
+        ladder_results,
+        key=lambda c: ladder_results[c][1] if not np.isnan(ladder_results[c][1]) else -np.inf,
+    )
+    best_arch_best_ladder, r2_best_ladder = ladder_results[best_ladder_category]
+    best_arch_corporate_event, r2_corporate_event = _best_r2("corporate_event")
+    delta_r2 = r2_best_ladder - r2_corporate_event
 
-    ci_geo = _get_ci("geopolitics", geo_arch)
-    ci_sports = _get_ci("sports", sports_arch)
-    delta_ci_lower = ci_geo[0] - ci_sports[1]
-    delta_ci_upper = ci_geo[1] - ci_sports[0]
+    ci_best_ladder = _get_ci(best_ladder_category, best_arch_best_ladder)
+    ci_corporate_event = _get_ci("corporate_event", best_arch_corporate_event)
+    delta_ci_lower = ci_best_ladder[0] - ci_corporate_event[1]
+    delta_ci_upper = ci_best_ladder[1] - ci_corporate_event[0]
 
     return {
         "hypothesis": "H4",
-        "r2_geopolitics": r2_geo,
-        "r2_sports": r2_sports,
-        "best_arch_geopolitics": geo_arch,
-        "best_arch_sports": sports_arch,
+        "best_ladder_category": best_ladder_category,
+        "r2_best_ladder": r2_best_ladder,
+        "r2_corporate_event": r2_corporate_event,
+        "best_arch_best_ladder": best_arch_best_ladder,
+        "best_arch_corporate_event": best_arch_corporate_event,
         "delta_r2": delta_r2,
         "ci_lower": delta_ci_lower,
         "ci_upper": delta_ci_upper,

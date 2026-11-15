@@ -3,6 +3,7 @@
 Usage:
     uv run python scripts/16_train_linear_baseline.py --category all --embedding shock
     uv run python scripts/16_train_linear_baseline.py --category sports --embedding raw
+    uv run python scripts/16_train_linear_baseline.py --target y_logit_24h_ladder
 
 Reads:  data/analysis/shock_embeddings.parquet
 Writes: models/checkpoints/linear_{category}_{embedding}.pkl
@@ -28,7 +29,13 @@ CHECKPOINTS_DIR = Path("models/checkpoints")
 RESULTS_PATH = Path("results/metrics_all.parquet")
 LINEAR_TEST_PREDS_PATH = Path("results/linear_test_predictions.parquet")
 
-SPORTS_CATS = {"nfl", "nba"}
+# Real contract_family values (see scripts/14_feasibility_gate.py's output) — this
+# replaces the pre-pivot sports/politics/geopolitics taxonomy, which predates the
+# Weeks 7-9 company-contract pivot and no longer matches any value in this column.
+_CATEGORIES = [
+    "corporate_event", "price_ladder", "revenue_ladder",
+    "valuation_ladder", "market_cap_ladder", "all",
+]
 
 log = get_logger(__name__)
 
@@ -37,7 +44,7 @@ def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Train linear ridge baseline.")
     p.add_argument(
         "--category",
-        choices=["sports", "politics", "geopolitics", "all"],
+        choices=_CATEGORIES,
         default="all",
     )
     p.add_argument(
@@ -45,46 +52,69 @@ def _parse_args() -> argparse.Namespace:
         choices=["shock", "raw"],
         default="shock",
     )
+    p.add_argument(
+        "--target",
+        choices=[
+            "y_logit_1h", "y_logit_6h", "y_logit_24h",
+            "y_logit_1h_ladder", "y_logit_6h_ladder", "y_logit_24h_ladder",
+        ],
+        default="y_logit_24h",
+        help="Reaction-window column to predict. Defaults to y_logit_24h — the only "
+        "window with meaningful coverage in this corpus (1h/6h are near-100%% null; "
+        "see novel_math_design.md Fix 1). A _ladder target shares its validity column "
+        "with the underlying window (e.g. y_logit_24h_ladder uses valid_24h).",
+    )
     return p.parse_args()
 
 
+def _valid_col_for_target(target: str) -> str:
+    """Map a y_logit_{delta}h[_ladder] target to its valid_{delta}h column.
+
+    A _ladder column has no separate validity flag of its own — it is only
+    meaningful where the underlying valid_{delta}h was already True (see
+    ladder_reaction.compute_ladder_adjusted_reactions).
+    """
+    window = target.removeprefix("y_logit_").removesuffix("_ladder")
+    return f"valid_{window}"
+
+
 def _filter_category(df: pd.DataFrame, category: str) -> pd.DataFrame:
-    if category == "sports":
-        return df[df["category"].isin(SPORTS_CATS)].copy()
-    elif category in ("politics", "geopolitics"):
-        return df[df["category"] == category].copy()
-    return df.copy()
+    if category == "all":
+        return df.copy()
+    return df[df["category"] == category].copy()
 
 
-def _get_split(df: pd.DataFrame, split: str, category: str, emb_col: str):
+def _get_split(df: pd.DataFrame, split: str, category: str, emb_col: str, target_col: str):
     sub = df[df["split"] == split].copy()
     sub = _filter_category(sub, category)
     X = np.stack(sub[emb_col].tolist()).astype(np.float64)
-    y = sub["y_logit_6h"].to_numpy(dtype=np.float64)
+    y = sub[target_col].to_numpy(dtype=np.float64)
     return X, y, sub
 
 
 def main() -> None:
     args = _parse_args()
     emb_col = "shock_embedding" if args.embedding == "shock" else "raw_embedding"
+    valid_col = _valid_col_for_target(args.target)
 
     if not SHOCK_PATH.exists():
         print("shock_embeddings.parquet not found — run script 13 first.")
         return
 
     df = pd.read_parquet(SHOCK_PATH)
-    df = df[df["valid_6h"] == True].copy()  # noqa: E712
+    df = df[df[valid_col] == True].copy()  # noqa: E712
 
     log.info(
         "linear_baseline",
         category=args.category,
         embedding=args.embedding,
+        target=args.target,
         n_rows=len(df),
     )
 
-    X_train, y_train, _ = _get_split(df, "train", args.category, emb_col)
-    X_val, y_val, _ = _get_split(df, "val", args.category, emb_col)
-    X_test, y_test, test_sub = _get_split(df, "test", args.category, emb_col)
+    X_train, y_train, _ = _get_split(df, "train", args.category, emb_col, args.target)
+    X_val, y_val, _ = _get_split(df, "val", args.category, emb_col, args.target)
+    X_test, y_test, test_sub = _get_split(df, "test", args.category, emb_col, args.target)
 
     if len(X_train) == 0:
         print(f"No training data for category={args.category}. Exiting.")
@@ -104,7 +134,15 @@ def main() -> None:
     print(f"Test R²_OOS:    {test_r2:.6f}")
     print(f"Test Dir Acc:   {test_dir_acc:.4f}")
 
-    ckpt_name = f"linear_{args.category}_{args.embedding}.pkl"
+    # Target suffix only for a non-default target, so the common y_logit_24h case
+    # keeps the plain filename scripts 20's checkpoint parser already recognizes.
+    # A _ladder (or 1h/6h) target gets a suffixed name instead of silently
+    # overwriting the same file — script 20 doesn't yet know how to evaluate a
+    # non-default target correctly anyway (hardcoded y_logit_6h; separate, deeper
+    # issue — see reports/novel_math_design.md follow-ups), so having it skip an
+    # unrecognized filename is the safe behavior for now, not a regression.
+    target_suffix = "" if args.target == "y_logit_24h" else f"_{args.target}"
+    ckpt_name = f"linear_{args.category}_{args.embedding}{target_suffix}.pkl"
     ckpt_path = CHECKPOINTS_DIR / ckpt_name
     CHECKPOINTS_DIR.mkdir(parents=True, exist_ok=True)
     model.save(ckpt_path)
@@ -130,6 +168,7 @@ def main() -> None:
         "arch": "linear",
         "category": args.category,
         "embedding": args.embedding,
+        "target": args.target,
         "val_mse": val_mse,
         "lambda_chosen": model.alpha_,
         "test_r2_oos": test_r2,
@@ -140,11 +179,16 @@ def main() -> None:
     RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
     if RESULTS_PATH.exists():
         existing = pd.read_parquet(RESULTS_PATH)
-        # Remove any existing row for same arch/category/embedding
+        if "target" not in existing.columns:
+            # Pre-existing rows predate the --target flag; they were all
+            # produced against the old hardcoded y_logit_6h column.
+            existing["target"] = "y_logit_6h"
+        # Remove any existing row for same arch/category/embedding/target
         mask = ~(
             (existing["arch"] == "linear")
             & (existing["category"] == args.category)
             & (existing["embedding"] == args.embedding)
+            & (existing["target"] == args.target)
         )
         existing = existing[mask]
         combined = pd.concat([existing, new_df], ignore_index=True)

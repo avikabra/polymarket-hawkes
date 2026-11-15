@@ -1,6 +1,7 @@
 data_root: "data"
 polymarket:
   universe: "data/polymarket/universe.parquet"
+  markets: "data/polymarket/contracts/markets.parquet"
   trades: "data/polymarket/trades"
   bars_1min: "data/polymarket/bars_1min"
 news:

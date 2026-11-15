@@ -1,0 +1,120 @@
+{
+  "loco_cv_model_selection": {
+    "candidates": {
+      "through_origin": {
+        "n_companies_scored": 12,
+        "mean_r2_unweighted": -0.29914692485255984,
+        "mean_r2_weighted_by_held_out_n": -0.15667311707572978
+      },
+      "with_intercept": {
+        "n_companies_scored": 12,
+        "mean_r2_unweighted": -0.1436161779035099,
+        "mean_r2_weighted_by_held_out_n": -0.08932248541367407
+      },
+      "winsorized_with_intercept": {
+        "n_companies_scored": 12,
+        "mean_r2_unweighted": -0.1283109806560709,
+        "mean_r2_weighted_by_held_out_n": -0.07246394738800538
+      },
+      "vol_standardized_with_intercept": {
+        "n_companies_scored": 12,
+        "mean_r2_unweighted": -0.1238104686941112,
+        "mean_r2_weighted_by_held_out_n": -0.06116292420283437
+      }
+    },
+    "selected_form": "vol_standardized_with_intercept"
+  },
+  "final_model_held_out_test": {
+    "selected_form": "vol_standardized_with_intercept",
+    "coefficients": [
+      0.15817794303809252
+    ],
+    "intercept": -0.18416246756173996,
+    "n_train_val_fit": 4038,
+    "n_test": 588,
+    "held_out_test_r2_all_companies": -0.015811002236829186,
+    "held_out_test_r2_seen_companies_only": -0.028415151270216432,
+    "held_out_test_r2_novel_companies_only": -0.031362353042954094,
+    "n_novel_company_test_rows": 418
+  },
+  "cluster_robust_significance": {
+    "pooled_price_ladder": {
+      "n_companies": 16,
+      "point_estimate_rho": 0.15982899450212895,
+      "cluster_robust_95pct_ci": [
+        0.04302019726713435,
+        0.28832564323612137
+      ],
+      "ci_excludes_zero": true
+    },
+    "train_val_only": {
+      "n_companies": 12,
+      "point_estimate_rho": 0.16101747661336824,
+      "cluster_robust_95pct_ci": [
+        0.030298628649276477,
+        0.3020534602460128
+      ],
+      "ci_excludes_zero": true
+    },
+    "test_only": {
+      "n_companies": 14,
+      "point_estimate_rho": 0.17906942863571795,
+      "cluster_robust_95pct_ci": [
+        -0.09486936456692256,
+        0.42736384333002564
+      ],
+      "ci_excludes_zero": false
+    }
+  },
+  "backtest": {
+    "n_trades": 588,
+    "directional_hit_rate": 0.24829931972789115,
+    "base_rate_y_negative": 0.2891156462585034,
+    "mean_gross_pnl_per_trade_log_odds": 0.04198774804024105,
+    "permutation_test": {
+      "n_permutations": 5000,
+      "percentile_vs_null": 1.0,
+      "raw_one_sided_p": 0.0001999600079984003,
+      "n_forms_compared_total_across_investigation": 22,
+      "bonferroni_corrected_p": 0.004399120175964807
+    },
+    "transaction_cost_sweep": {
+      "0bps_round_trip": {
+        "mean_net_pnl_per_trade": 0.04198774804024105,
+        "sharpe_per_trade": 0.24500680545809467,
+        "total_net_pnl": 24.688795847661723,
+        "max_drawdown": -3.3430229588884153
+      },
+      "10bps_round_trip": {
+        "mean_net_pnl_per_trade": 0.04181755858907324,
+        "sharpe_per_trade": 0.24410782030676897,
+        "total_net_pnl": 24.588724450375125,
+        "max_drawdown": -3.347971623280568
+      },
+      "20bps_round_trip": {
+        "mean_net_pnl_per_trade": 0.041647369137905406,
+        "sharpe_per_trade": 0.2432080208111732,
+        "total_net_pnl": 24.488653053088505,
+        "max_drawdown": -3.3529202876727098
+      },
+      "40bps_round_trip": {
+        "mean_net_pnl_per_trade": 0.041306990235569774,
+        "sharpe_per_trade": 0.24140597982921944,
+        "total_net_pnl": 24.28851025851493,
+        "max_drawdown": -3.368294254622736
+      }
+    },
+    "equity_curve_sample_last10_net_0bps": [
+      23.7197,
+      23.913,
+      24.1062,
+      24.2995,
+      24.4927,
+      24.6954,
+      24.6954,
+      24.6954,
+      24.6888,
+      24.6888
+    ]
+  }
+}

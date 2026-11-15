@@ -1,0 +1,22 @@
+# Open-weight LLM judge config (Weeks 7-9 Task A9).
+#
+# Fill this in ONLY once Yale Bouchet HPC access lands (see reports/yale_cluster_request.md)
+# and a vLLM/TGI/SGLang server is up there, then copy this file to
+# config/openweight_llm.yaml and run:
+#   uv run python scripts/09_llm_verify_matches.py --openweight
+#
+# There is no default base_url — src/matching/openweight_verifier.py raises a
+# RuntimeError pointing back at this template if config/openweight_llm.yaml is
+# missing or incomplete. It never falls back to localhost.
+
+# OpenAI-compatible base URL of the inference server (vLLM/TGI/SGLang all expose
+# an OpenAI-compatible /v1 endpoint), e.g. "https://<bouchet-node>:8000/v1"
+base_url: "YOUR_OPENWEIGHT_ENDPOINT_BASE_URL"
+
+# Model name as the inference server exposes it, e.g. "meta-llama/Llama-3.1-8B-Instruct"
+model: "YOUR_OPENWEIGHT_MODEL_NAME"
+
+# Name of the environment variable (set in .env) holding the API key/token for
+# this endpoint — NOT the key itself. Most self-hosted vLLM/TGI servers accept
+# any non-empty bearer token unless configured with real auth.
+api_key_env_var: "OPENWEIGHT_LLM_API_KEY"

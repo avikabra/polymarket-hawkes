@@ -26,7 +26,11 @@ import pandas as pd
 EMBEDDING_DIM = 768
 
 # Category distribution mirrors expected real data
-_CATEGORIES = ["nfl", "nba", "politics", "geopolitics"]
+# Real contract_family values (post-pivot; replaces old sports/politics/geopolitics taxonomy)
+_CATEGORIES = [
+    "corporate_event", "price_ladder", "revenue_ladder",
+    "valuation_ladder", "market_cap_ladder",
+]
 _SPLITS = ["train", "val", "test"]
 _NEWS_TYPES = ["quantitative", "qualitative", "high_attention", "ambiguous"]
 _DIR_IMPACTS = [-1, 0, 1]

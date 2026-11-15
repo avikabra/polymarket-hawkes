@@ -93,6 +93,23 @@ def normalize_and_deduplicate(
     return deduped
 
 
+def build_matching_text_corpus(gdelt_dir: str, feeds_dir: str) -> pd.DataFrame:
+    """Load + normalize the GDELT and feed corpora into one matching-text DataFrame.
+
+    Thin public wrapper around load_gdelt_articles + load_feed_articles +
+    normalize_and_deduplicate() — the same chain script 07 already uses to build
+    its matching embeddings. GDELT rows get a synthetic entity/theme title
+    (see _build_gdelt_titles_vectorized); feed rows keep their real title/lede.
+    Shared here so scripts 07/08/09/12 all score against the same text instead
+    of each re-deriving (or, for 08/09/12, previously skipping) it.
+    """
+    gdelt_df = load_gdelt_articles(gdelt_dir) if Path(gdelt_dir).exists() else pd.DataFrame()
+    feed_df = load_feed_articles(feeds_dir) if Path(feeds_dir).exists() else pd.DataFrame()
+    if gdelt_df.empty and feed_df.empty:
+        return pd.DataFrame()
+    return normalize_and_deduplicate(gdelt_df, feed_df)
+
+
 def _partition_key(row) -> tuple[int | None, int | None]:
     if pd.notna(row.get("published_at")):
         dt = pd.Timestamp(row["published_at"])

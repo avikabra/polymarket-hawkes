@@ -18,9 +18,17 @@ class Market(BaseModel):
     no_token_id: str
     resolved_outcome: Literal["YES", "NO", "INVALID"]
     total_volume_usdc: float
-    market_type: Literal[
-        "season_long", "championship", "playoff_series",
-        "conference", "single_game", "other"
-    ]
+    contract_family: Literal["price_ladder", "market_cap_ladder", "valuation_ladder", "revenue_ladder", "other_ladder", "corporate_event", "other"] = "other"
     parent_event_id: str | None
     is_primary_sample: bool
+    company_name: str | None = None
+    ticker: str | None = None
+    company_id: str = ""
+    # strike_price/strike_direction/price_expiry_month hold the generic threshold value/direction/period for ANY ladder metric (price, valuation, revenue, market_cap), not only share price.
+    strike_price: float | None = None
+    strike_direction: Literal["above", "below"] | None = None
+    price_expiry_month: str | None = None  # ISO "YYYY-MM"
+    group_id: str = ""
+    group_role: Literal["child", "standalone"] = "standalone"
+    volume_1wk: float = 0.0
+    volume_1mo: float = 0.0
