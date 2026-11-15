@@ -36,6 +36,10 @@ style: |
   h1 { padding-bottom: 0; border-bottom: none; margin-bottom: 11px; }
   section::after { display: none; }
   section::before { content: "18"; position: absolute; font-size: 18px; color: #8a95a3; padding: 0; right: 40px; bottom: 24px; }
+  svg text { font-family: "Inter", sans-serif; }
+  .iv { display: block; font-size: 14px; color: #8a95a3; font-weight: 400; }
+  td { vertical-align: top; }
+  .side li { font-size: 19px; }
 ---
 
 # What the stock explains
@@ -44,29 +48,68 @@ style: |
 <div class="chart">
 <div class="ct">Daily return of the same news-shock bets</div>
 <svg width="560" height="440" viewBox="0 0 560 440">
-<line x1="60" y1="210" x2="540" y2="210" stroke="#1b2430" stroke-width="2"/>
-<line x1="300" y1="20" x2="300" y2="400" stroke="#1b2430" stroke-width="2"/>
-<line x1="110" y1="400" x2="490" y2="20" stroke="#14365d" stroke-width="2" stroke-dasharray="8 6"/>
-<text x="80" y="60" font-size="16" fill="#14365d">Dashed line: Polymarket</text>
-<text x="80" y="82" font-size="16" fill="#14365d">mirrors the stock (c = 1)</text>
-<text x="300" y="430" font-size="17" fill="#2c3747" text-anchor="middle">Stock return per $1 bet</text>
-<text x="22" y="210" font-size="17" fill="#2c3747" text-anchor="middle" transform="rotate(-90 22 210)">Polymarket return per $1 bet</text>
-<text x="308" y="230" font-size="15" fill="#5b6573">0</text>
-</svg>
+<line x1="70" y1="250" x2="540" y2="250" stroke="#1b2430" stroke-width="2"/>
+<line x1="305" y1="20" x2="305" y2="390" stroke="#1b2430" stroke-width="2"/>
+<text x="117" y="270" font-size="14" fill="#5b6573" text-anchor="middle">−0.4%</text>
+<text x="493" y="270" font-size="14" fill="#5b6573" text-anchor="middle">+0.4%</text>
+<text x="297" y="355" font-size="14" fill="#5b6573" text-anchor="end">−5%</text>
+<text x="297" y="155" font-size="14" fill="#5b6573" text-anchor="end">+5%</text>
+<text x="297" y="55" font-size="14" fill="#5b6573" text-anchor="end">+10%</text>
+<line x1="70" y1="346" x2="540" y2="156" stroke="#14365d" stroke-width="2.5"/>
+<line x1="70" y1="260" x2="540" y2="240" stroke="#14365d" stroke-width="2" stroke-dasharray="8 6"/>
+<circle cx="329.9" cy="256.3" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="345.4" cy="301.2" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="372.7" cy="30.2" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="215.2" cy="257.2" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="256.1" cy="257.7" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="257.1" cy="298.4" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="265.5" cy="213.5" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="295.1" cy="312.0" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="255.2" cy="334.7" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="222.8" cy="270.4" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="330.4" cy="254.9" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="353.9" cy="326.7" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="145.2" cy="242.9" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="353.9" cy="223.2" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="314.9" cy="230.4" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="334.6" cy="189.4" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="242.0" cy="263.6" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="339.3" cy="257.4" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="289.5" cy="242.1" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="314.4" cy="288.3" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="318.6" cy="287.4" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="323.8" cy="222.2" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="307.4" cy="248.1" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="305.0" cy="250.0" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="313.0" cy="252.6" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="292.8" cy="335.8" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="334.1" cy="233.2" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="225.1" cy="254.1" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="328.5" cy="225.5" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="331.3" cy="215.8" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="509.4" cy="102.8" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="353.4" cy="203.3" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="302.6" cy="297.1" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<circle cx="373.6" cy="312.5" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
+<text x="80" y="40" font-size="15" fill="#14365d">Solid line: fit with c = 9.5</text>
+<text x="80" y="62" font-size="15" fill="#14365d">Dashed line: c = 1</text>
+<text x="80" y="84" font-size="15" fill="#5b6573">Each dot is one test day</text>
+<text x="305" y="428" font-size="17" fill="#2c3747" text-anchor="middle">Stock return per $1 bet</text>
+<text x="20" y="205" font-size="17" fill="#2c3747" text-anchor="middle" transform="rotate(-90 20 205)">Polymarket return per $1 bet</text></svg>
 <div class="xa" style="margin-left:0">Test days: Aug 28 to Oct 29, 2026</div>
 </div>
 
 <div class="side">
 <ul>
-<li>Polymarket can profit just because the stock moved. The intercept a is the profit left over after the stock's part.</li>
-<li>Each test day we place the bets from slide 16 on both markets. We fit Polymarket return = a + c × stock return across the test days.</li>
-<li>c is the Polymarket return per dollar of stock return. Example: c = 0.5 means 2 cents per dollar on the stock bets adds 1 cent on Polymarket.</li>
-<li>A positive a means Polymarket misprices the news in a way the stock does not.</li>
+<li>Each test day we place the slide 16 bets on both markets. We fit Polymarket return = a + c × stock return.</li>
+<li>a is near zero. Polymarket earns nothing beyond the stock's part.</li>
+<li>c is 9.5. One cent of stock return goes with 9.5 cents on Polymarket.</li>
+<li>The stock explains 17% of Polymarket's daily return.</li>
 </ul>
 <table><tr><th></th><th>Estimate</th><th>95% interval</th></tr>
-<tr><td>a (per $1 per day)</td><td>…</td><td>…</td></tr>
-<tr><td>c</td><td>…</td><td>…</td></tr>
-<tr><td>R² (share explained)</td><td>…</td><td></td></tr></table>
+<tr><td>a (per $1 per day)</td><td>−0.0003</td><td>−0.0097 to 0.0085</td></tr>
+<tr><td>c</td><td>9.5</td><td>−1.1 to 18.7</td></tr>
+<tr><td>R² (share explained)</td><td>0.17</td><td>0.00 to 0.47</td></tr></table>
 </div>
 </div>
 

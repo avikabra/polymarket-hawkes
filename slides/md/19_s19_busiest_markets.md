@@ -31,26 +31,43 @@ style: |
   td:first-child { color: #1b2430; font-weight: 700; }
   .trk { position: absolute; left: 64px; bottom: 20px; font-size: 16px; color: #5b6573; }
   .trk b { color: #14365d; }
+  svg text { font-family: "Inter", sans-serif; }
   section { align-content: start; line-height: normal; }
   h1 { padding-bottom: 0; border-bottom: none; margin-bottom: 11px; }
   section::after { display: none; }
   section::before { content: "19"; position: absolute; font-size: 18px; color: #8a95a3; padding: 0; right: 40px; bottom: 24px; }
-  .lim { margin-top: 10px; }
-  .lim table { width: 100%; }
-  .lim th { padding: 8px 16px; font-size: 19px; }
-  .lim td { padding: 9px 16px; vertical-align: top; color: #2c3747; font-weight: 400; font-size: 17px; line-height: 1.3; }
-  .lim td:first-child { width: 62%; }
-  .lim .h { font-weight: 700; color: #1b2430; font-size: 20px; margin-bottom: 2px; }
+  .tb { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .tb table { font-size: 19px; width: 100%; margin-top: 0; }
+  .tb td, .tb th { padding: 7px 14px; }
+  .tb td:nth-child(n+2), .tb th:nth-child(n+2) { text-align: right; }
+  .side li { font-size: 20px; }
 ---
 
-# Limitations
+# The busiest markets
 
-<div class="lim">
-<table><tr><th>Limitation</th><th>Effect on the results</th></tr>
-<tr><td><div class="h">Stock bets open eight hours before Polymarket bets</div>Polymarket trades around the clock so its bet runs from midnight to midnight. Stocks trade 9:30am to 4pm so the stock bet runs from the 4pm close to the next close. A 6pm article falls inside the stock bet. Polymarket may price it before midnight.</td><td>The stock gets news that Polymarket has already priced. This favors the stock when we compare the two markets.</td></tr>
-<tr><td><div class="h">Articles have a date but no time</div>GDELT records only the day each article appeared. Ideally each article would carry its publication time. Each bet could then start the minute the article came out.</td><td>A price move at 9am can come before a 3pm article on the same day. The bets may get credit for moves that came before the news.</td></tr>
-<tr><td><div class="h">The test covers only 63 days</div>We score the strategy once on Aug 28 to Oct 29, 2026. A Sharpe ratio from 63 daily returns is imprecise.</td><td>A strategy that truly earns a little can show a 95% interval that includes zero. We would then fail to detect it.</td></tr>
-<tr><td><div class="h">The stock comparison assumes a straight line</div>We fit Polymarket return = a + c × stock return. This assumes each extra cent of stock return adds the same amount on Polymarket. Large stock moves may carry over differently from small ones.</td><td>If the true link bends then a and c describe only an average of it.</td></tr></table>
+<div class="cols">
+<div class="tb">
+<table><tr><th>Company</th><th>Volume in the year</th><th>Typical test day</th></tr>
+<tr><td>Nvidia</td><td>$8.2M</td><td>$2,700</td></tr>
+<tr><td>Alphabet</td><td>$5.6M</td><td>$2,900</td></tr>
+<tr><td>Tesla</td><td>$5.2M</td><td>$2,600</td></tr>
+<tr><td>Meta</td><td>$5.1M</td><td>$3,600</td></tr>
+<tr><td>Apple</td><td>$5.1M</td><td>$2,400</td></tr>
+<tr><td>Netflix</td><td>$5.0M</td><td>$2,300</td></tr>
+<tr><td>Amazon</td><td>$4.7M</td><td>$2,200</td></tr>
+<tr><td>Microsoft</td><td>$4.3M</td><td>$3,000</td></tr>
+<tr><td>Palantir</td><td>$3.1M</td><td>$2,400</td></tr></table>
+<div class="xa" style="margin-left:0">Polymarket dollar volume from Sep 2025 to Oct 2026</div>
 </div>
 
-<div class="trk">Part II: Prediction &rsaquo; <b>Limitations</b></div>
+<div class="side">
+<ul>
+<li>These nine companies hold 46 of the 51 million dollars traded across all 61 companies.</li>
+<li>The news-shock bets on these nine earn no more than on all 61. The Sharpe ratio in ξ is −0.12 against −0.09.</li>
+<li>A contract the strategy holds trades about $1,100 a day. All 61 companies together trade about $50,000 a day.</li>
+<li>Example: a 1% daily edge on 10% of volume needs $4&nbsp;million traded a day to earn $1&nbsp;million a year.</li>
+</ul>
+</div>
+</div>
+
+<div class="trk">Part II: Prediction &rsaquo; <b>The busiest markets</b></div>
