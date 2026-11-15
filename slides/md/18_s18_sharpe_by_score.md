@@ -49,6 +49,7 @@ style: |
   .tb table { font-size: 19px; width: 100%; margin-top: 0; }
   .tb td, .tb th { padding: 8px 14px; }
   .tb td.n, .tb th.n { text-align: right; }
+  .side li { font-size: 18px; margin-bottom: 9px; }
 ---
 
 # Sharpe ratio of news-shock bets in each score
@@ -101,8 +102,11 @@ style: |
 
 <div class="side">
 <ul>
-<li>The same bets profit in log-odds and lose in money.</li>
-<li>Log-odds counts a move from 1¢ to 2¢ as large. In money that move pays 1¢.</li>
+<li>Each score gets its own bets. The weights are learned separately for each score.</li>
+<li>Money is the dollar return per dollar spent. Cheap contracts dominate because a 1¢ rise on a 2¢ contract returns 50%.</li>
+<li>Log-odds stretches prices near 0¢ and 100¢. Moves at the ends count most.</li>
+<li>ξ divides each move by the move the stock's volatility predicts for that price and time left. Every contract counts on the same footing.</li>
+<li>Only log-odds shows a profit. ξ and money show none.</li>
 </ul>
 </div>
 </div>

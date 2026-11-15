@@ -49,13 +49,16 @@ style: |
   .tb table { font-size: 19px; width: 100%; margin-top: 0; }
   .tb td, .tb th { padding: 8px 14px; }
   .tb td.n, .tb th.n { text-align: right; }
+  .chart { flex: 2.3; }
+  .chart svg { height: 520px; width: auto; }
+  .cols { height: 560px; }
+  .big { font-size: 30px; font-weight: 700; color: #14365d; line-height: 1.3; border-left: 6px solid #14365d; padding-left: 20px; }
 ---
 
 # Sharpe ratio in ξ of bets on each version of the news
 
 <div class="cols">
 <div class="chart">
-<div class="ct">Sharpe ratio in ξ</div>
 <svg width="580" height="440" viewBox="0 0 580 440">
 <line x1="70" y1="360" x2="510" y2="360" stroke="#e3e7ec" stroke-width="1"/>
 <text x="62" y="365" font-size="15" fill="#5b6573" text-anchor="end">−0.60</text>
@@ -100,9 +103,7 @@ style: |
 </div>
 
 <div class="side">
-<ul>
-<li>No version of the news earns a reliable profit. Every interval includes zero.</li>
-</ul>
+<div class="big">No version of the news earns a reliable profit. Every interval includes zero.</div>
 </div>
 </div>
 

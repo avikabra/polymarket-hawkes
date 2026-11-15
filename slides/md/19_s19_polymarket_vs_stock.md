@@ -94,7 +94,7 @@ style: |
 
 <div class="side">
 <ul>
-<li>We place the same bets on each company's stock on the same days.</li>
+<li>On the same days and news we learn one set of weights for Polymarket returns and one for stock returns.</li>
 <li>Polymarket bets run from midnight for 24 hours. Stock bets run from the 4pm close to the next close.</li>
 <li>Neither market earns a reliable profit.</li>
 </ul>

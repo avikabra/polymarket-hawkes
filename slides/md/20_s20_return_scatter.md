@@ -49,6 +49,7 @@ style: |
   .tb table { font-size: 19px; width: 100%; margin-top: 0; }
   .tb td, .tb th { padding: 8px 14px; }
   .tb td.n, .tb th.n { text-align: right; }
+  .side li { font-size: 18px; margin-bottom: 9px; }
 ---
 
 # Daily Polymarket return against stock return
@@ -110,10 +111,10 @@ style: |
 
 <div class="side">
 <ul>
-<li>We fit Polymarket return = a + c × stock return.</li>
-<li>a is −0.03¢ per dollar per day. Polymarket earns nothing beyond the stock.</li>
-<li>c is 9.51. A 1¢ stock gain goes with a 9.51¢ Polymarket gain.</li>
-<li>The stock explains 17% of Polymarket's daily swings.</li>
+<li>Each test day we place the bets learned in ξ on both markets. We fit Polymarket return = a + c × stock return.</li>
+<li>a is −0.03¢ per dollar per day. Polymarket earns nothing beyond what the stock explains.</li>
+<li>c is 9.51 with an interval of −1.15 to 18.67. A contract pays $1 or nothing so its price can move many times the stock's percentage move.</li>
+<li>From this fit the stock explains 17% of the daily swings in Polymarket's return. The interval runs from 0% to 47%.</li>
 </ul>
 </div>
 </div>

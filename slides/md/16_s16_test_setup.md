@@ -49,25 +49,28 @@ style: |
   .tb table { font-size: 19px; width: 100%; margin-top: 0; }
   .tb td, .tb th { padding: 8px 14px; }
   .tb td.n, .tb th.n { text-align: right; }
+  .side li { font-size: 18px; margin-bottom: 9px; }
   .tb td:first-child { white-space: nowrap; }
+  .tb td { vertical-align: top; }
 ---
 
 # How we test news against Polymarket moves
 
 <div class="cols">
 <div class="tb">
-<table><tr><th>Score</th><th>Measures</th><th class="n">Example</th></tr>
-<tr><td>Money</td><td>Dollars earned per dollar bet</td><td class="n">0.02</td></tr>
-<tr><td>Log-odds</td><td>Change in the price's log-odds</td><td class="n">0.41</td></tr>
-<tr><td>ξ</td><td>Price move in standard deviations of the stock</td><td class="n">1.00</td></tr></table>
+<table><tr><th>Score</th><th>What it measures</th></tr>
+<tr><td>ξ</td><td>The contract's price move divided by the move the stock's volatility predicts for its price and time left</td></tr>
+<tr><td>Money</td><td>Dollars earned per dollar bet</td></tr>
+<tr><td>Log-odds</td><td>The change in the log-odds of the contract's price</td></tr></table>
 </div>
 
 <div class="side">
 <ul>
 <li>Each day from Aug 28 to Oct 29, 2026 we bet on every company with news that day.</li>
-<li>Weights learned on earlier days set each bet's side and size. We hold each bet from midnight for 24 hours.</li>
-<li>We set the bets three ways. The news shock is what company traits do not explain. Raw news is all of the articles. Predictable news is what company traits explain.</li>
-<li>ξ is the main score. It puts every contract on one scale.</li>
+<li>A bet buys the company's Polymarket contracts on the side its news points to. Good news buys contracts that pay if the company does well.</li>
+<li>Weights learned on earlier days set how many dollars each bet gets. Stronger news gets a bigger bet. We sell 24 hours after midnight.</li>
+<li>Raw news is the company's articles that day. Predictable news is the part of those articles that company traits predict. The news shock is the articles net of company traits.</li>
+<li>We judge the bets in ξ. It lets a 5¢ contract and a 90¢ contract count equally.</li>
 </ul>
 </div>
 </div>
