@@ -43,7 +43,7 @@ style: |
   .side li { font-size: 20px; }
 ---
 
-# The busiest markets
+# Polymarket volume of the nine busiest companies
 
 <div class="cols">
 <div class="tb">
@@ -63,11 +63,11 @@ style: |
 <div class="side">
 <ul>
 <li>These nine companies hold 46 of the 51 million dollars traded across all 61 companies.</li>
-<li>The news-shock bets on these nine earn no more than on all 61. The Sharpe ratio in ξ is −0.12 against −0.09.</li>
-<li>A contract the strategy holds trades about $1,100 a day. All 61 companies together trade about $50,000 a day.</li>
+<li>Our bets on these nine earn no more than on all 61. The daily Sharpe ratio in ξ is −0.12 against −0.09.</li>
+<li>A contract we bet on trades about $1,100 a day. All 61 companies together trade about $50,000 a day.</li>
 <li>Example: a 1% daily edge on 10% of volume needs $4&nbsp;million traded a day to earn $1&nbsp;million a year.</li>
 </ul>
 </div>
 </div>
 
-<div class="trk">Part II: Prediction &rsaquo; <b>The busiest markets</b></div>
+<div class="trk">Part II: Prediction &rsaquo; <b>Polymarket volume of the nine busiest companies</b></div>

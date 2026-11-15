@@ -39,9 +39,12 @@ style: |
   .iv { display: block; font-size: 14px; color: #8a95a3; font-weight: 400; }
   td { vertical-align: top; }
   .side li { font-size: 19px; }
+  .side li { font-size: 18px; margin-bottom: 6px; }
+  .side td, .side th { padding: 4px 12px; }
+  .iv { font-size: 13px; }
 ---
 
-# Results
+# Sharpe ratio of bets on each part of the news
 
 <div class="cols">
 <div class="chart">
@@ -85,7 +88,9 @@ style: |
 
 <div class="side">
 <ul>
-<li>No portfolio earns a reliable profit in ξ. Every interval includes zero.</li>
+<li>Each test day we bet on every company with news. The fit from slide 15 sets each bet's side and size.</li>
+<li>Sharpe ratio = average daily profit ÷ its daily swing. Example: 1 ÷ 4 = 0.25.</li>
+<li>Each bar sets the bets with one part of the news. None earns a reliable profit in ξ. Every interval includes zero.</li>
 <li>In log-odds the news shock looks profitable. In money it loses. Log-odds counts a move from 1¢ to 2¢ as large.</li>
 </ul>
 <table><tr><th>Sharpe ratio</th><th>Daily</th><th>Yearly</th></tr>
@@ -97,4 +102,4 @@ style: |
 </div>
 </div>
 
-<div class="trk">Part II: Prediction &rsaquo; <b>Results</b></div>
+<div class="trk">Part II: Prediction &rsaquo; <b>Sharpe ratio of bets on each part of the news</b></div>

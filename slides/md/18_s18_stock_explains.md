@@ -42,11 +42,11 @@ style: |
   .side li { font-size: 19px; }
 ---
 
-# What the stock explains
+# Daily Polymarket return against stock return
 
 <div class="cols">
 <div class="chart">
-<div class="ct">Daily return of the same news-shock bets</div>
+<div class="ct">Daily return of the same bets on both markets</div>
 <svg width="560" height="440" viewBox="0 0 560 440">
 <line x1="70" y1="250" x2="540" y2="250" stroke="#1b2430" stroke-width="2"/>
 <line x1="305" y1="20" x2="305" y2="390" stroke="#1b2430" stroke-width="2"/>
@@ -102,9 +102,9 @@ style: |
 <div class="side">
 <ul>
 <li>Each test day we place the slide 16 bets on both markets. We fit Polymarket return = a + c × stock return.</li>
-<li>a is near zero. Polymarket earns nothing beyond the stock's part.</li>
-<li>c is 9.5. One cent of stock return goes with 9.5 cents on Polymarket.</li>
-<li>The stock explains 17% of Polymarket's daily return.</li>
+<li>a is what Polymarket earns beyond the stock. It is near zero.</li>
+<li>c is 9.5. When the bets earn 1 cent per dollar on the stock they earn about 9.5 cents on Polymarket.</li>
+<li>The stock explains 17% of the day-to-day changes in Polymarket's return.</li>
 </ul>
 <table><tr><th></th><th>Estimate</th><th>95% interval</th></tr>
 <tr><td>a (per $1 per day)</td><td>−0.0003</td><td>−0.0097 to 0.0085</td></tr>
@@ -113,4 +113,4 @@ style: |
 </div>
 </div>
 
-<div class="trk">Part II: Prediction &rsaquo; <b>What the stock explains</b></div>
+<div class="trk">Part II: Prediction &rsaquo; <b>Daily Polymarket return against stock return</b></div>

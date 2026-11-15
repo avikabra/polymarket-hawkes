@@ -43,14 +43,14 @@ style: |
   .lim .h { font-weight: 700; color: #1b2430; font-size: 20px; margin-bottom: 2px; }
 ---
 
-# Limitations
+# Limitations of the test
 
 <div class="lim">
 <table><tr><th>Limitation</th><th>Effect on the results</th></tr>
 <tr><td><div class="h">Stock bets open eight hours before Polymarket bets</div>Polymarket trades around the clock so its bet runs from midnight to midnight. Stocks trade 9:30am to 4pm so the stock bet runs from the 4pm close to the next close. A 6pm article falls inside the stock bet. Polymarket may price it before midnight.</td><td>The stock gets news that Polymarket has already priced. This favors the stock when we compare the two markets.</td></tr>
 <tr><td><div class="h">Articles have a date but no time</div>GDELT records only the day each article appeared. Ideally each article would carry its publication time. Each bet could then start the minute the article came out.</td><td>A price move at 9am can come before a 3pm article on the same day. The bets may get credit for moves that came before the news.</td></tr>
-<tr><td><div class="h">The test covers only 63 days</div>We score the strategy once on Aug 28 to Oct 29, 2026. A Sharpe ratio from 63 daily returns is imprecise.</td><td>A strategy that truly earns a little can show a 95% interval that includes zero. We would then fail to detect it.</td></tr>
+<tr><td><div class="h">The test covers only 63 days</div>We test the bets once on Aug 28 to Oct 29, 2026. A Sharpe ratio from 63 daily returns is imprecise.</td><td>Bets that truly earn a little can show a 95% interval that includes zero. We would then fail to detect it.</td></tr>
 <tr><td><div class="h">The stock comparison assumes a straight line</div>We fit Polymarket return = a + c × stock return. This assumes each extra cent of stock return adds the same amount on Polymarket. Large stock moves may carry over differently from small ones.</td><td>If the true link bends then a and c describe only an average of it.</td></tr></table>
 </div>
 
-<div class="trk">Part II: Prediction &rsaquo; <b>Limitations</b></div>
+<div class="trk">Part II: Prediction &rsaquo; <b>Limitations of the test</b></div>

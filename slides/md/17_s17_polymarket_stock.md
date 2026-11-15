@@ -39,9 +39,12 @@ style: |
   .iv { display: block; font-size: 14px; color: #8a95a3; font-weight: 400; }
   td { vertical-align: top; }
   .side li { font-size: 19px; }
+  .side li { font-size: 18px; margin-bottom: 6px; }
+  .side td, .side th { padding: 4px 12px; }
+  .iv { font-size: 13px; }
 ---
 
-# Polymarket and stock
+# Sharpe ratio on Polymarket and on the stock
 
 <div class="cols">
 <div class="chart">
@@ -78,10 +81,10 @@ style: |
 
 <div class="side">
 <ul>
-<li>Both bars place the slide 16 bets on the same company-days. Money is dollars earned per dollar bet.</li>
+<li>We place the slide 16 bets on each company's stock on the same days. Both bars are in dollars per dollar bet.</li>
 <li>Polymarket bets run from midnight for 24 hours. Stock bets run from the news day's close to the next day's close.</li>
-<li>Polymarket and the stock earn about the same on the same news. Both intervals include zero.</li>
-<li>Quiet days have below-median Polymarket volume the day before. They do not differ from busy days.</li>
+<li>The bets earn about the same on both markets. Both intervals include zero.</li>
+<li>Quiet days have below-median Polymarket trading the day before. They earn no more than busy days.</li>
 </ul>
 <table><tr><th>Sharpe ratio</th><th>Daily</th><th>Yearly</th></tr>
 <tr><td>Polymarket in money</td><td>−0.01<span class="iv">−0.34 to 0.29</span></td><td>−0.1<span class="iv">−5.4 to 4.6</span></td></tr>
@@ -90,4 +93,4 @@ style: |
 </div>
 </div>
 
-<div class="trk">Part II: Prediction &rsaquo; <b>Polymarket and stock</b></div>
+<div class="trk">Part II: Prediction &rsaquo; <b>Sharpe ratio on Polymarket and on the stock</b></div>
