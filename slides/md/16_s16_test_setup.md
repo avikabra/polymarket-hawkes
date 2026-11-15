@@ -34,23 +34,42 @@ style: |
   section { align-content: start; line-height: normal; }
   h1 { padding-bottom: 0; border-bottom: none; margin-bottom: 11px; }
   section::after { display: none; }
-  section::before { content: "20"; position: absolute; font-size: 18px; color: #8a95a3; padding: 0; right: 40px; bottom: 24px; }
-  .lim { margin-top: 10px; }
-  .lim table { width: 100%; }
-  .lim th { padding: 8px 16px; font-size: 19px; }
-  .lim td { padding: 9px 16px; vertical-align: top; color: #2c3747; font-weight: 400; font-size: 17px; line-height: 1.3; }
-  .lim td:first-child { width: 62%; }
-  .lim .h { font-weight: 700; color: #1b2430; font-size: 20px; margin-bottom: 2px; }
+  section::before { content: "16"; position: absolute; font-size: 18px; color: #8a95a3; padding: 0; right: 40px; bottom: 24px; }
+  svg text { font-family: "Inter", sans-serif; }
+  .iv { display: block; font-size: 14px; color: #8a95a3; font-weight: 400; }
+  td { vertical-align: top; }
+  .side li { font-size: 19px; }
+  .side li { font-size: 18px; margin-bottom: 6px; }
+  .side td, .side th { padding: 4px 12px; }
+  .iv { font-size: 13px; }
+
+  svg text { font-family: "Inter", sans-serif; }
+  .side li { font-size: 20px; margin-bottom: 12px; }
+  .tb { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .tb table { font-size: 19px; width: 100%; margin-top: 0; }
+  .tb td, .tb th { padding: 8px 14px; }
+  .tb td.n, .tb th.n { text-align: right; }
+  .tb td:first-child { white-space: nowrap; }
 ---
 
-# Limitations of the test
+# How we test news against Polymarket moves
 
-<div class="lim">
-<table><tr><th>Limitation</th><th>Effect on the results</th></tr>
-<tr><td><div class="h">Stock bets open eight hours before Polymarket bets</div>Polymarket trades around the clock so its bet runs from midnight to midnight. Stocks trade 9:30am to 4pm so the stock bet runs from the 4pm close to the next close. A 6pm article falls inside the stock bet. Polymarket may price it before midnight.</td><td>The stock gets news that Polymarket has already priced. This favors the stock when we compare the two markets.</td></tr>
-<tr><td><div class="h">Articles have a date but no time</div>GDELT records only the day each article appeared. Ideally each article would carry its publication time. Each bet could then start the minute the article came out.</td><td>A price move at 9am can come before a 3pm article on the same day. The bets may get credit for moves that came before the news.</td></tr>
-<tr><td><div class="h">The test covers only 63 days</div>We test the bets once on Aug 28 to Oct 29, 2026. A Sharpe ratio from 63 daily returns is imprecise.</td><td>Bets that truly earn a little can show a 95% interval that includes zero. We would then fail to detect it.</td></tr>
-<tr><td><div class="h">The stock comparison assumes a straight line</div>We fit Polymarket return = a + c × stock return. This assumes each extra cent of stock return adds the same amount on Polymarket. Large stock moves may carry over differently from small ones.</td><td>If the true link bends then a and c describe only an average of it.</td></tr></table>
+<div class="cols">
+<div class="tb">
+<table><tr><th>Score</th><th>Measures</th><th class="n">Example</th></tr>
+<tr><td>Money</td><td>Dollars earned per dollar bet</td><td class="n">0.02</td></tr>
+<tr><td>Log-odds</td><td>Change in the price's log-odds</td><td class="n">0.41</td></tr>
+<tr><td>ξ</td><td>Price move in standard deviations of the stock</td><td class="n">1.00</td></tr></table>
 </div>
 
-<div class="trk">Part II: Prediction &rsaquo; <b>Limitations of the test</b></div>
+<div class="side">
+<ul>
+<li>Each day from Aug 28 to Oct 29, 2026 we bet on every company with news that day.</li>
+<li>Weights learned on earlier days set each bet's side and size. We hold each bet from midnight for 24 hours.</li>
+<li>We set the bets three ways. The news shock is what company traits do not explain. Raw news is all of the articles. Predictable news is what company traits explain.</li>
+<li>ξ is the main score. It puts every contract on one scale.</li>
+</ul>
+</div>
+</div>
+
+<div class="trk">Part II: Prediction &rsaquo; <b>How we test news against Polymarket moves</b></div>

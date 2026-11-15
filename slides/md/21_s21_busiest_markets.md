@@ -31,41 +31,48 @@ style: |
   td:first-child { color: #1b2430; font-weight: 700; }
   .trk { position: absolute; left: 64px; bottom: 20px; font-size: 16px; color: #5b6573; }
   .trk b { color: #14365d; }
-  svg text { font-family: "Inter", sans-serif; }
   section { align-content: start; line-height: normal; }
   h1 { padding-bottom: 0; border-bottom: none; margin-bottom: 11px; }
   section::after { display: none; }
-  section::before { content: "19"; position: absolute; font-size: 18px; color: #8a95a3; padding: 0; right: 40px; bottom: 24px; }
+  section::before { content: "21"; position: absolute; font-size: 18px; color: #8a95a3; padding: 0; right: 40px; bottom: 24px; }
+  svg text { font-family: "Inter", sans-serif; }
+  .iv { display: block; font-size: 14px; color: #8a95a3; font-weight: 400; }
+  td { vertical-align: top; }
+  .side li { font-size: 19px; }
+  .side li { font-size: 18px; margin-bottom: 6px; }
+  .side td, .side th { padding: 4px 12px; }
+  .iv { font-size: 13px; }
+
+  svg text { font-family: "Inter", sans-serif; }
+  .side li { font-size: 20px; margin-bottom: 12px; }
   .tb { flex: 1; display: flex; flex-direction: column; justify-content: center; }
   .tb table { font-size: 19px; width: 100%; margin-top: 0; }
-  .tb td, .tb th { padding: 7px 14px; }
-  .tb td:nth-child(n+2), .tb th:nth-child(n+2) { text-align: right; }
-  .side li { font-size: 20px; }
+  .tb td, .tb th { padding: 8px 14px; }
+  .tb td.n, .tb th.n { text-align: right; }
 ---
 
 # Polymarket volume of the nine busiest companies
 
 <div class="cols">
 <div class="tb">
-<table><tr><th>Company</th><th>Volume in the year</th><th>Typical test day</th></tr>
-<tr><td>Nvidia</td><td>$8.2M</td><td>$2,700</td></tr>
-<tr><td>Alphabet</td><td>$5.6M</td><td>$2,900</td></tr>
-<tr><td>Tesla</td><td>$5.2M</td><td>$2,600</td></tr>
-<tr><td>Meta</td><td>$5.1M</td><td>$3,600</td></tr>
-<tr><td>Apple</td><td>$5.1M</td><td>$2,400</td></tr>
-<tr><td>Netflix</td><td>$5.0M</td><td>$2,300</td></tr>
-<tr><td>Amazon</td><td>$4.7M</td><td>$2,200</td></tr>
-<tr><td>Microsoft</td><td>$4.3M</td><td>$3,000</td></tr>
-<tr><td>Palantir</td><td>$3.1M</td><td>$2,400</td></tr></table>
-<div class="xa" style="margin-left:0">Polymarket dollar volume from Sep 2025 to Oct 2026</div>
+<table><tr><th>Company</th><th class="n">Year ($M)</th><th class="n">Typical test day ($K)</th></tr>
+<tr><td>Nvidia</td><td class="n">8.17</td><td class="n">2.74</td></tr>
+<tr><td>Alphabet</td><td class="n">5.64</td><td class="n">2.90</td></tr>
+<tr><td>Tesla</td><td class="n">5.19</td><td class="n">2.57</td></tr>
+<tr><td>Meta</td><td class="n">5.09</td><td class="n">3.57</td></tr>
+<tr><td>Apple</td><td class="n">5.07</td><td class="n">2.40</td></tr>
+<tr><td>Netflix</td><td class="n">5.01</td><td class="n">2.31</td></tr>
+<tr><td>Amazon</td><td class="n">4.75</td><td class="n">2.25</td></tr>
+<tr><td>Microsoft</td><td class="n">4.34</td><td class="n">2.99</td></tr>
+<tr><td>Palantir</td><td class="n">3.15</td><td class="n">2.39</td></tr></table>
 </div>
 
 <div class="side">
 <ul>
-<li>These nine companies hold 46 of the 51 million dollars traded across all 61 companies.</li>
-<li>Our bets on these nine earn no more than on all 61. The daily Sharpe ratio in ξ is −0.12 against −0.09.</li>
-<li>A contract we bet on trades about $1,100 a day. All 61 companies together trade about $50,000 a day.</li>
-<li>Example: a 1% daily edge on 10% of volume needs $4&nbsp;million traded a day to earn $1&nbsp;million a year.</li>
+<li>These nine hold $46M of the $51M traded across all 61 companies.</li>
+<li>Bets on these nine earn −0.12 in ξ. Bets on all 61 earn −0.09.</li>
+<li>Bets earn no more on days with little trading.</li>
+<li>Earning $1M a year at a 1% daily edge would take $4M of trading a day. All 61 companies trade $0.05M a day.</li>
 </ul>
 </div>
 </div>

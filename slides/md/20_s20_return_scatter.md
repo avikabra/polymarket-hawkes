@@ -31,30 +31,39 @@ style: |
   td:first-child { color: #1b2430; font-weight: 700; }
   .trk { position: absolute; left: 64px; bottom: 20px; font-size: 16px; color: #5b6573; }
   .trk b { color: #14365d; }
-  svg text { font-family: "Inter", sans-serif; }
   section { align-content: start; line-height: normal; }
   h1 { padding-bottom: 0; border-bottom: none; margin-bottom: 11px; }
   section::after { display: none; }
-  section::before { content: "18"; position: absolute; font-size: 18px; color: #8a95a3; padding: 0; right: 40px; bottom: 24px; }
+  section::before { content: "20"; position: absolute; font-size: 18px; color: #8a95a3; padding: 0; right: 40px; bottom: 24px; }
   svg text { font-family: "Inter", sans-serif; }
   .iv { display: block; font-size: 14px; color: #8a95a3; font-weight: 400; }
   td { vertical-align: top; }
   .side li { font-size: 19px; }
+  .side li { font-size: 18px; margin-bottom: 6px; }
+  .side td, .side th { padding: 4px 12px; }
+  .iv { font-size: 13px; }
+
+  svg text { font-family: "Inter", sans-serif; }
+  .side li { font-size: 20px; margin-bottom: 12px; }
+  .tb { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .tb table { font-size: 19px; width: 100%; margin-top: 0; }
+  .tb td, .tb th { padding: 8px 14px; }
+  .tb td.n, .tb th.n { text-align: right; }
 ---
 
 # Daily Polymarket return against stock return
 
 <div class="cols">
 <div class="chart">
-<div class="ct">Daily return of the same bets on both markets</div>
+<div class="ct">Daily return per $1 bet</div>
 <svg width="560" height="440" viewBox="0 0 560 440">
 <line x1="70" y1="250" x2="540" y2="250" stroke="#1b2430" stroke-width="2"/>
 <line x1="305" y1="20" x2="305" y2="390" stroke="#1b2430" stroke-width="2"/>
-<text x="117" y="270" font-size="14" fill="#5b6573" text-anchor="middle">−0.4%</text>
-<text x="493" y="270" font-size="14" fill="#5b6573" text-anchor="middle">+0.4%</text>
-<text x="297" y="355" font-size="14" fill="#5b6573" text-anchor="end">−5%</text>
-<text x="297" y="155" font-size="14" fill="#5b6573" text-anchor="end">+5%</text>
-<text x="297" y="55" font-size="14" fill="#5b6573" text-anchor="end">+10%</text>
+<text x="117" y="270" font-size="14" fill="#5b6573" text-anchor="middle">−0.40%</text>
+<text x="493" y="270" font-size="14" fill="#5b6573" text-anchor="middle">0.40%</text>
+<text x="297" y="355" font-size="14" fill="#5b6573" text-anchor="end">−5.00%</text>
+<text x="297" y="155" font-size="14" fill="#5b6573" text-anchor="end">5.00%</text>
+<text x="297" y="55" font-size="14" fill="#5b6573" text-anchor="end">10.00%</text>
 <line x1="70" y1="346" x2="540" y2="156" stroke="#14365d" stroke-width="2.5"/>
 <line x1="70" y1="260" x2="540" y2="240" stroke="#14365d" stroke-width="2" stroke-dasharray="8 6"/>
 <circle cx="329.9" cy="256.3" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
@@ -91,8 +100,8 @@ style: |
 <circle cx="353.4" cy="203.3" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
 <circle cx="302.6" cy="297.1" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
 <circle cx="373.6" cy="312.5" r="4.5" fill="#9fb3cc" stroke="#14365d" stroke-width="1"/>
-<text x="80" y="40" font-size="15" fill="#14365d">Solid line: fit with c = 9.5</text>
-<text x="80" y="62" font-size="15" fill="#14365d">Dashed line: c = 1</text>
+<text x="80" y="40" font-size="15" fill="#14365d">Solid line: fit</text>
+<text x="80" y="62" font-size="15" fill="#14365d">Dashed line: c = 1.00</text>
 <text x="80" y="84" font-size="15" fill="#5b6573">Each dot is one test day</text>
 <text x="305" y="428" font-size="17" fill="#2c3747" text-anchor="middle">Stock return per $1 bet</text>
 <text x="20" y="205" font-size="17" fill="#2c3747" text-anchor="middle" transform="rotate(-90 20 205)">Polymarket return per $1 bet</text></svg>
@@ -101,15 +110,11 @@ style: |
 
 <div class="side">
 <ul>
-<li>Each test day we place the slide 16 bets on both markets. We fit Polymarket return = a + c × stock return.</li>
-<li>a is what Polymarket earns beyond the stock. It is near zero.</li>
-<li>c is 9.5. When the bets earn 1 cent per dollar on the stock they earn about 9.5 cents on Polymarket.</li>
-<li>The stock explains 17% of the day-to-day changes in Polymarket's return.</li>
+<li>We fit Polymarket return = a + c × stock return.</li>
+<li>a is −0.03¢ per dollar per day. Polymarket earns nothing beyond the stock.</li>
+<li>c is 9.51. A 1¢ stock gain goes with a 9.51¢ Polymarket gain.</li>
+<li>The stock explains 17% of Polymarket's daily swings.</li>
 </ul>
-<table><tr><th></th><th>Estimate</th><th>95% interval</th></tr>
-<tr><td>a (per $1 per day)</td><td>−0.0003</td><td>−0.0097 to 0.0085</td></tr>
-<tr><td>c</td><td>9.5</td><td>−1.1 to 18.7</td></tr>
-<tr><td>R² (share explained)</td><td>0.17</td><td>0.00 to 0.47</td></tr></table>
 </div>
 </div>
 
