@@ -12,9 +12,8 @@ on one names it.
 | Polymarket data | 2025-09-26 (first company trade) to 2026-10-30 | Contracts, trades, Polymarket block |
 | Articles | 2025-09-26 to 2026-10-30 | Shocks, Z-score history |
 | Shock use period | About 2025-10-26 to 2026-10-30 | Days that get a shock |
-| Part two train | Shock start to about 2026-06-15 | Fit the prediction model |
-| Part two validation | About 2026-06-16 to 2026-08-27 | Tune the prediction model |
-| Part two test | 2026-08-28 to 2026-10-30 | Scored once, at the end |
+| Part two train | 2025-10-26 to 2026-08-27 | First estimate of b, not scored |
+| Part two test | 2026-08-28 to 2026-10-29 | Scored once, after everything is locked |
 
 The earlier model's data ended 2026-08-27, so the test months are dates no earlier result has
 touched. There is no 2022-2024 period: Polymarket has no company contracts then.
@@ -235,8 +234,8 @@ companiesmarketcap for market cap, assets and liabilities; Polymarket trades fro
 59. Roll forward one day and repeat, so every day has its own training month and is always out of
     sample. This is Kelly's monthly re-estimation, shifted one day so D is excluded (decided, D3).
     The first shock is about 2025-10-26, one month after the first company trade.
-60. Consistency with part two: the procedure is identical on every day, in part two's train,
-    validation and test periods alike. A test-period shock uses only the month before it, which may
+60. Consistency with part two: the procedure is identical on every day, in part two's train
+    and test periods alike. A test-period shock uses only the month before it, which may
     reach back into the train period; that is past data and holds no reactions. What part two must
     lock before scoring the test period: the names, the matching prompt, the characteristic
     definitions and the one-month window. As a check, also build shocks with β frozen at the end of
@@ -250,59 +249,119 @@ companiesmarketcap for market cap, assets and liabilities; Polymarket trades fro
 
 ---
 
-# Part two: do news shocks predict Polymarket moves? (Proposed: D9 to D11)
+# Part two: prediction (Approved; steps 87-90 and 92-95 added after approval)
 
-Kelly's second step asks whether pure news predicts the next return, then trades on it. Part two
-asks the same of Polymarket: does u(k,D) predict how company k's contracts move in the 24 hours
-after D?
+**The question.** Kelly et al. find that pure news predicts next month's stock returns, and that a
+portfolio built on it earns a Sharpe ratio of 3.1, against 1.1 for raw news. Part two asks the same
+of Polymarket: does a company's pure news on day D predict how its contracts move over the next 24
+hours, and how does that compare with the stock? It follows Kelly's Section 4 ("The MSRR
+Approach"), with a day in place of his month.
 
-**Target**
+## 7. Reaction y
 
-64. For each link (company k, day D, contract c): y = log-odds at the last trade before midnight
-    after D + 24h − log-odds at the last trade before midnight after D. Both clipped.
-65. Flip the sign if YES pays when the stock falls, so a positive y always means good for the
-    stock.
-66. Closing buckets have no single direction, so they leave the target, as in step 39.
-67. Rungs of one ladder move together, so standard errors cluster by contract group and by day.
+64. y(k,D) is company k's Polymarket return over the 24 hours after D, built like r^PM in step 39:
+    for each of k's contracts, Δℓ = ℓ(last trade before midnight + 24h) − ℓ(last trade before
+    midnight), with the sign flipped when YES pays if the stock falls. y > 0 means the market moved
+    toward good news for the stock.
+65. Contracts that count: open at the midnight after D, at least $1,000 traded through D, and
+    traded at least once in the 24 hours. Closing buckets stay out. A contract that resolves inside
+    the 24 hours counts with its last trade before resolution.
+66. y(k,D) = the dollar-weighted average of Δℓ across those contracts. No contract traded means y is
+    missing for that company-day.
+67. One y per company-day, as Kelly has one return per stock-month. Averaging a ladder's rungs
+    avoids counting one bet many times.
+68. Money version, for the trade in step 82: the dollar-weighted average of (p' − p) / p, the return
+    on $1 placed on the good-news side of each contract (YES on an "above" contract, NO on a "below"
+    one) at the midnight price and sold 24 hours later.
+69. Stock version, for the comparison in step 87: y^S(k,D) = the stock's return from the last close
+    on or before D to the close of the next trading day. Used only on days where the next calendar
+    day is a trading day, so the two 24-hour windows cover the same day.
 
-**Split**
+## 8. News shock
 
-68. Train, validation and test by date, as in the date table. Skip one day at each cutoff so no
-    24-hour window crosses it.
-69. Report results with and without contracts that span a cutoff.
-70. Lock names, prompt, characteristics and the model before looking at any test reaction.
-71. Tune on validation; also run leave-one-company-out on train plus validation as a check.
-72. Score the test period once.
+70. The predictor is u(k,D) from Section 6: 2,560 numbers per company-day.
+71. Two comparison predictors, as in Kelly's Figure 4: raw news E(k,D), and predictable news
+    S(k,D) β̂. Since E = S β̂ + u, the three split the article into what was known and what is new.
+72. A row enters part two only if it has a shock and a y.
 
-**Model (D9)**
+## 9. Split
 
-73. Kelly's method, carried over: for each embedding coordinate j and day D, form a portfolio that
-    holds each linked contract with weight u_j(k,D) and earns its y. Find weights w over these
-    2,560 portfolios that maximize the Sharpe ratio (MSRR, regress 1 on the portfolio returns),
-    with ridge shrinkage. The strategy then holds each contract with weight u(k,D)·w.
-    Kelly uses a rolling 24-month window; we use the train period and pick the ridge strength on
-    validation. The exact shrinkage and any dimension cut get confirmed against the paper before
-    coding.
-74. Baselines, built the same way:
-    - Raw embeddings: E(k,D) in place of u (Kelly's 1.1 comparison).
-    - Market state only: M(k,D) in place of u.
-    - Constant: hold every linked contract with the same sign.
+73. Train: 2025-10-26 (first shock) to 2026-08-27. The first estimate of b uses all of it. No
+    predictions are scored here.
+74. Test: 2026-08-28 to 2026-10-29, the last day with a full 24 hours after it. b is re-estimated
+    each day on all earlier days (step 79), so every test prediction uses only the past.
+75. Nothing in the test period is looked at until the names, prompt, characteristics, Section 6 and
+    every choice in Sections 7 to 11 are locked. It is scored once.
+76. The model applied on day D uses only (u, y) pairs whose 24 hours have passed by the end of D,
+    which means days up to D−1.
 
-**Results**
+## 10. Fit
 
-75. For each model: out-of-sample Sharpe per trade, out-of-sample R² of y, and the share of moves
-    with the right sign. Bootstrap confidence intervals by day.
-76. Repeat for: $1,000+ and $10,000+ contracts; with and without contracts
-    spanning cutoffs; each contract type separately.
-77. Trading costs: Polymarket fees and spread are not in the trade data. Report results before
-    costs and state that (D10).
+77. On day D, give company k the weight w(k,D) = u(k,D) · b, where b is a list of 2,560 numbers.
+    Each coordinate j is a small strategy whose daily return is F_j(D) = Σ_k u_j(k,D) y(k,D); b
+    blends the 2,560 into the one with the highest Sharpe ratio (Kelly's MSRR).
+78. Estimate b on the days before D: minimize Σ_D (1 − b·F(D))² + λ b·b. The solution is
+    b̂ = (FᵀF + λI)⁻¹ Fᵀ1. The ridge penalty λ b·b shrinks b toward 0, needed with 2,560 coordinates
+    and a few hundred days.
+79. Choose λ by leave-one-out cross-validation inside the training days, as Kelly does: leave out
+    one day, fit on the rest, check that day, repeat for every day, keep the λ with the best average.
+80. Re-estimate b̂ and λ every day on all earlier days, and apply them to the next day's shocks.
+81. Repeat steps 77 to 80 with raw news E and with predictable news S β̂ in place of u. As a
+    robustness check (Kelly's Section 6), also predict y directly by ridge regression,
+    ŷ(k,D) = u(k,D) · c, and bet on the highest predicted y and against the lowest.
 
-**Final product**
+## 11. Score
 
-78. `data/news/news_shocks.parquet`, the results tables from steps 75-76, and a
-    short write-up for Link.
-79. The thesis claim: if pure news predicts Polymarket moves better than raw news and market state,
-    Polymarket prices news inefficiently, as Kelly finds for stocks.
+82. The trade. At the midnight after D, for each company with news: if w(k,D) > 0, put w(k,D)
+    dollars on the good-news side of k's contracts; if w(k,D) < 0, put |w(k,D)| dollars on the
+    bad-news side. Sell 24 hours later. The day's profit is R(D) = Σ_k w(k,D) y(k,D).
+83. The Sharpe ratio is the average daily profit divided by its standard deviation: profit per unit
+    of risk. 0 means no edge. A strategy that makes a little every day beats one that makes the same
+    average with large swings. Reported per day, for the money version (step 68), which is what a
+    trader earns, and for log-odds (step 64).
+84. For the ridge check: R²_OOS = 1 − Σ(y − ŷ)² / Σ y², the share of the moves predicted, compared
+    with predicting no move.
+85. Uncertainty: bootstrap the test days (draw days with replacement, recompute, 10,000 times) for
+    95% intervals on each Sharpe ratio and on the gap between pure news and raw news.
+86. Repeat for contracts with $10,000+ traded, for β frozen at the end of training (Section 6's
+    check), and for each contract type. All numbers are before trading costs, which are not in the
+    data.
+
+**Comparison with the stock market**
+
+87. Run steps 77 to 83 with the stock return y^S (step 69) in place of y, on the same company-days.
+    This is Kelly's test on the same news and days.
+88. Compare the two Sharpe ratios. A higher Sharpe on Polymarket means Polymarket absorbs the same
+    news more slowly than the stock market.
+89. How far Polymarket follows the stock: regress y on y^S across company-days, y = a + c·y^S. c is
+    the log-odds move per 1% stock move, and R² is the share of Polymarket's move the stock explains.
+90. Repeat steps 88 and 89 for pure news alone: does Polymarket move with the stock on the news the
+    characteristics could not predict?
+
+**Trade size**
+
+91. Polymarket is mostly retail by count and partly large traders by money. In our 832,257 trades
+    ($51.3 million), the median trade is $6.48, 92% of trades are under $100, and the largest 1% are
+    over $999. Trades of $1,000 or more are 1% of trades but 45% of the money. Wallet addresses are
+    not stored, so traders cannot be identified, only trade sizes.
+92. Split company-days into thirds by Polymarket dollar volume in the 24 hours, and report the
+    Sharpe ratio in each third. If pure news predicts best in the thinnest markets, news is absorbed
+    slowly where little money trades.
+93. Who trades on the news: for each company-day, the net money flowing to the good-news side over
+    the 24 hours (buys of it minus sells), split into trades under $1,000 and trades of $1,000 or
+    more. Regress each on the pure-news weight w(k,D): which group trades in the direction pure news
+    points?
+94. Capacity: the average money traded in the contracts the strategy holds, which bounds how much
+    the strategy could place without moving prices.
+
+## 12. Result
+
+95. The claim holds if, in the test period: the pure-news portfolio's Sharpe ratio beats raw news,
+    predictable news earns little, and the Polymarket Sharpe exceeds the stock Sharpe on the same
+    news. That says Polymarket prices company news less efficiently than the stock market, and steps
+    92 and 93 say where and by whom.
+96. Outputs: `data/news/news_shocks.parquet`, the daily portfolio returns, the tables from steps 83 to
+    94, and a short write-up for Link.
 
 ---
 
@@ -318,9 +377,11 @@ after D?
 | D6 | Pull Yahoo statements for book equity and profitability (steps 43-44) | Decided: yes |
 | D7 | Keep JKP's 12-month history rule for momentum (step 49) | Decided: yes |
 | D8 | Stock history from 2020-09-01? | Yes |
-| D9 | Part two model: Kelly's MSRR (step 73)? | Yes |
-| D10 | Report before costs only? | Yes, stated plainly |
-| D11 | Split with test from 2026-08-28? | Yes |
+| D9 | Part two fit: Kelly's MSRR with expanding window and leave-one-out λ (steps 78-82) | Decided |
+| D10 | Report before costs only (step 90) | Decided |
+| D11 | Train to 2026-08-27, test from 2026-08-28 (steps 73-74) | Decided |
 | D12 | Drop the 89,114 old-period URLs and the 571,000 Instagram/Facebook-only URLs? | Yes |
 | D13 | Push the commits so Link can pull them? | Your call |
-| D14 | The old README plan compared LSTM, transformer and TCN models. Still in scope? | Drop; Kelly's method is linear |
+| D14 | Drop LSTM, Transformer and TCN (step 85) | Decided |
+| D15 | One y per company-day, averaging its contracts (step 67) | Decided |
+| D16 | Also score a money version of y (steps 68, 86) | Decided |
