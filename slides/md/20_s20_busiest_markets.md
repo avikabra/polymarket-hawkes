@@ -34,23 +34,47 @@ style: |
   section { align-content: start; line-height: normal; }
   h1 { padding-bottom: 0; border-bottom: none; margin-bottom: 11px; }
   section::after { display: none; }
-  section::before { content: "22"; position: absolute; font-size: 18px; color: #8a95a3; padding: 0; right: 40px; bottom: 24px; }
-  .lim { margin-top: 10px; }
-  .lim table { width: 100%; }
-  .lim th { padding: 8px 16px; font-size: 19px; }
-  .lim td { padding: 9px 16px; vertical-align: top; color: #2c3747; font-weight: 400; font-size: 17px; line-height: 1.3; }
-  .lim td:first-child { width: 62%; }
-  .lim .h { font-weight: 700; color: #1b2430; font-size: 20px; margin-bottom: 2px; }
+  section::before { content: "20"; position: absolute; font-size: 18px; color: #8a95a3; padding: 0; right: 40px; bottom: 24px; }
+  svg text { font-family: "Inter", sans-serif; }
+  .iv { display: block; font-size: 14px; color: #8a95a3; font-weight: 400; }
+  td { vertical-align: top; }
+  .side li { font-size: 19px; }
+  .side li { font-size: 18px; margin-bottom: 6px; }
+  .side td, .side th { padding: 4px 12px; }
+  .iv { font-size: 13px; }
+
+  svg text { font-family: "Inter", sans-serif; }
+  .side li { font-size: 20px; margin-bottom: 12px; }
+  .tb { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .tb table { font-size: 19px; width: 100%; margin-top: 0; }
+  .tb td, .tb th { padding: 8px 14px; }
+  .tb td.n, .tb th.n { text-align: right; }
 ---
 
-# Limitations of the test
+# Polymarket volume of the nine busiest companies
 
-<div class="lim">
-<table><tr><th>Limitation</th><th>Effect on the results</th></tr>
-<tr><td><div class="h">Stock bets open eight hours before Polymarket bets</div>Polymarket trades around the clock so its bet runs from midnight to midnight. Stocks trade 9:30am to 4pm so the stock bet runs from the 4pm close to the next close. A 6pm article falls inside the stock bet. Polymarket may price it before midnight.</td><td>The stock gets news that Polymarket has already priced. This favors the stock when we compare the two markets.</td></tr>
-<tr><td><div class="h">Articles have a date but no time</div>GDELT records only the day each article appeared. Ideally each article would carry its publication time. Each bet could then start the minute the article came out.</td><td>A price move at 9am can come before a 3pm article on the same day. The bets may get credit for moves that came before the news.</td></tr>
-<tr><td><div class="h">The test covers only 63 days</div>We test the bets once on Aug 28 to Oct 29, 2026. A Sharpe ratio from 63 daily returns is imprecise.</td><td>Bets that truly earn a little can show a 95% interval that includes zero. We would then fail to detect it.</td></tr>
-<tr><td><div class="h">The stock comparison assumes a straight line</div>We fit Polymarket return = a + c × stock return. This assumes each extra cent of stock return adds the same amount on Polymarket. Large stock moves may carry over differently from small ones.</td><td>If the true link bends then a and c describe only an average of it.</td></tr></table>
+<div class="cols">
+<div class="tb">
+<table><tr><th>Company</th><th class="n">Year ($M)</th><th class="n">Typical test day ($K)</th></tr>
+<tr><td>Nvidia</td><td class="n">8.17</td><td class="n">2.74</td></tr>
+<tr><td>Alphabet</td><td class="n">5.64</td><td class="n">2.90</td></tr>
+<tr><td>Tesla</td><td class="n">5.19</td><td class="n">2.57</td></tr>
+<tr><td>Meta</td><td class="n">5.09</td><td class="n">3.57</td></tr>
+<tr><td>Apple</td><td class="n">5.07</td><td class="n">2.40</td></tr>
+<tr><td>Netflix</td><td class="n">5.01</td><td class="n">2.31</td></tr>
+<tr><td>Amazon</td><td class="n">4.75</td><td class="n">2.25</td></tr>
+<tr><td>Microsoft</td><td class="n">4.34</td><td class="n">2.99</td></tr>
+<tr><td>Palantir</td><td class="n">3.15</td><td class="n">2.39</td></tr></table>
 </div>
 
-<div class="trk">Part II: Prediction &rsaquo; <b>Limitations of the test</b></div>
+<div class="side">
+<ul>
+<li>These nine held $46M of the $51M traded across all 61 companies.</li>
+<li>Bets on these nine earned −0.12 in ξ. Bets on all 61 earned −0.09.</li>
+<li>Bets earned no more on days with little trading.</li>
+<li>Earning $1M a year at a 1% daily edge would take $4M of trading a day. All 61 companies traded $0.05M a day.</li>
+</ul>
+</div>
+</div>
+
+<div class="trk">Part II: Prediction &rsaquo; <b>Polymarket volume of the nine busiest companies</b></div>

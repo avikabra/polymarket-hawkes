@@ -102,11 +102,9 @@ style: |
 
 <div class="side">
 <ul>
-<li>Each score gets its own bets. The weights are learned separately for each score.</li>
-<li>Money is the dollar return per dollar spent. Cheap contracts dominate because a 1¢ rise on a 2¢ contract returns 50%.</li>
-<li>Log-odds stretches prices near 0¢ and 100¢. Moves at the ends count most.</li>
-<li>ξ divides each move by the move the stock's volatility predicts for that price and time left. Every contract counts on the same footing.</li>
-<li>Only log-odds shows a profit. ξ and money show none.</li>
+<li>We learned the weights once for each score. Each time the weights picked the news patterns that best predicted past moves in that score.</li>
+<li>The same news therefore produced different bets under each score.</li>
+<li>The three scores weigh the same price move differently. Money divides it by the price paid. Log-odds counts moves near 0¢ and 100¢ most. ξ divides it by the move the stock's volatility implied.</li>
 </ul>
 </div>
 </div>

@@ -103,7 +103,7 @@ style: |
 </div>
 
 <div class="side">
-<div class="big">No version of the news earns a reliable profit. Every interval includes zero.</div>
+<div class="big">No version of the news earned a reliable profit. Every interval included zero.</div>
 </div>
 </div>
 

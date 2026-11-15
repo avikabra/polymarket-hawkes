@@ -67,10 +67,10 @@ style: |
 <div class="side">
 <ul>
 <li>Each day from Aug 28 to Oct 29, 2026 we bet on every company with news that day.</li>
-<li>A bet buys the company's Polymarket contracts on the side its news points to. Good news buys contracts that pay if the company does well.</li>
-<li>Weights learned on earlier days set how many dollars each bet gets. Stronger news gets a bigger bet. We sell 24 hours after midnight.</li>
+<li>A bet bought the company's Polymarket contracts on the side its news pointed to. Good news bought contracts that pay if the company does well.</li>
+<li>Weights turned each company's news into a bet size. We learned the weights on earlier days as the news patterns that best predicted price moves. We sold each bet 24 hours after midnight.</li>
 <li>Raw news is the company's articles that day. Predictable news is the part of those articles that company traits predict. The news shock is the articles net of company traits.</li>
-<li>We judge the bets in ξ. It lets a 5¢ contract and a 90¢ contract count equally.</li>
+<li>We judged the bets in ξ. It lets a 5¢ contract and a 90¢ contract count equally.</li>
 </ul>
 </div>
 </div>

@@ -34,7 +34,7 @@ style: |
   section { align-content: start; line-height: normal; }
   h1 { padding-bottom: 0; border-bottom: none; margin-bottom: 11px; }
   section::after { display: none; }
-  section::before { content: "20"; position: absolute; font-size: 18px; color: #8a95a3; padding: 0; right: 40px; bottom: 24px; }
+  section::before { content: "19"; position: absolute; font-size: 18px; color: #8a95a3; padding: 0; right: 40px; bottom: 24px; }
   svg text { font-family: "Inter", sans-serif; }
   .iv { display: block; font-size: 14px; color: #8a95a3; font-weight: 400; }
   td { vertical-align: top; }
@@ -111,10 +111,10 @@ style: |
 
 <div class="side">
 <ul>
-<li>Each test day we place the bets learned in ξ on both markets. We fit Polymarket return = a + c × stock return.</li>
-<li>a is −0.03¢ per dollar per day. Polymarket earns nothing beyond what the stock explains.</li>
-<li>c is 9.51 with an interval of −1.15 to 18.67. A contract pays $1 or nothing so its price can move many times the stock's percentage move.</li>
-<li>From this fit the stock explains 17% of the daily swings in Polymarket's return. The interval runs from 0% to 47%.</li>
+<li>Each test day we placed the bets learned in ξ on both markets. We fit Polymarket return = a + c × stock return.</li>
+<li>a was −0.03¢ per dollar per day. Polymarket earned nothing beyond what the stock explained.</li>
+<li>c was 9.51 with an interval of −1.15 to 18.67. A contract pays $1 or nothing so its price can move many times the stock's percentage move.</li>
+<li>From this fit the stock explained 17% of the daily swings in Polymarket's return.</li>
 </ul>
 </div>
 </div>
